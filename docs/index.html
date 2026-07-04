@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SonarQube SQL Review Plugin — MyBatis XML SQL 质量守门员</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#ffffff;--bg2:#f8f9fb;--bg3:#f1f3f5;--surface:#ffffff;
+  --border:#e5e7eb;--border2:#d1d5db;
+  --text:#1a1a2e;--text2:#4b5563;--text3:#9ca3af;
+  --accent:#2563eb;--accent2:#7c3aed;
+  --green:#059669;--amber:#d97706;--red:#dc2626;--pink:#db2777;
+  --mono:'JetBrains Mono','Fira Code','Cascadia Code',monospace;
+  --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --sidebar-w:240px;
+  --radius:8px;
+}
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+html{scroll-behavior:smooth;font-size:16px}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:1.7;overflow-x:hidden}
+a{color:var(--accent);text-decoration:none;transition:color .2s}
+a:hover{color:#1d4ed8}
+
+/* Sidebar */
+.sidebar{position:fixed;top:0;left:0;width:var(--sidebar-w);height:100vh;background:var(--bg2);border-right:1px solid var(--border);padding:2rem 0;overflow-y:auto;z-index:100;display:flex;flex-direction:column}
+.sidebar-brand{padding:0 1.25rem 1.25rem;border-bottom:1px solid var(--border);margin-bottom:.75rem}
+.sidebar-brand h2{font-size:.9rem;font-weight:700;color:var(--text);margin-bottom:.15rem}
+.sidebar-brand span{font-size:.72rem;color:var(--text3);font-weight:500}
+.sidebar nav{flex:1;padding:0 .5rem}
+.sidebar nav a{display:block;padding:.45rem .75rem;border-radius:6px;font-size:.82rem;color:var(--text2);transition:all .15s;font-weight:500}
+.sidebar nav a:hover{background:rgba(37,99,235,.06);color:var(--accent)}
+.sidebar nav a.active{background:rgba(37,99,235,.08);color:var(--accent);font-weight:600}
+.sidebar-footer{padding:.75rem 1.25rem;border-top:1px solid var(--border);font-size:.72rem;color:var(--text3)}
+
+/* Main */
+.main{margin-left:var(--sidebar-w);min-height:100vh}
+
+/* Hero */
+.hero{padding:5rem 4rem 4rem;border-bottom:1px solid var(--border);position:relative}
+.hero-tag{display:inline-block;font-size:.7rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);background:rgba(37,99,235,.07);padding:.3rem .8rem;border-radius:16px;margin-bottom:1.25rem}
+.hero h1{font-size:2.8rem;font-weight:800;line-height:1.2;margin-bottom:.75rem;color:var(--text)}
+.hero-sub{font-size:1.1rem;color:var(--text2);max-width:540px;margin-bottom:1.75rem;line-height:1.65}
+.hero-meta{display:flex;gap:2rem;font-size:.82rem;color:var(--text3)}
+.hero-meta strong{color:var(--text2);font-weight:600}
+.hero-banner{display:block;max-width:100%;height:auto;border-radius:var(--radius);margin-bottom:2rem;box-shadow:0 2px 12px rgba(0,0,0,.08);border:1px solid var(--border)}
+
+/* Sections */
+.section{padding:3.5rem 4rem;border-bottom:1px solid var(--border)}
+.section-label{font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:.5rem}
+.section h2{font-size:1.5rem;font-weight:700;margin-bottom:.4rem;color:var(--text)}
+.section h3{font-size:1rem;font-weight:600;color:var(--text);margin:2rem 0 .6rem}
+.section-desc{color:var(--text2);max-width:600px;margin-bottom:1.75rem;font-size:.9rem}
+
+/* Features */
+.features{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1rem}
+.feature{padding:1.25rem;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);transition:border-color .2s}
+.feature:hover{border-color:var(--accent)}
+.feature-icon{width:32px;height:32px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:1rem;margin-bottom:.6rem}
+.feature h4{font-size:.88rem;font-weight:600;margin-bottom:.3rem;color:var(--text)}
+.feature p{font-size:.8rem;color:var(--text2);line-height:1.55}
+.feature code{font-size:.75rem;background:var(--bg3);padding:.1rem .3rem;border-radius:3px}
+
+/* Table */
+.table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius)}
+table{width:100%;border-collapse:collapse;font-size:.82rem}
+thead{background:var(--bg2)}
+th{padding:.65rem 1rem;text-align:left;font-weight:600;font-size:.72rem;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border)}
+td{padding:.65rem 1rem;border-bottom:1px solid var(--border);color:var(--text2)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--bg2)}
+.badge{display:inline-block;padding:.12rem .5rem;border-radius:4px;font-size:.68rem;font-weight:600;letter-spacing:.02em}
+.badge-critical{background:#fef2f2;color:var(--red)}
+.badge-major{background:#fffbeb;color:var(--amber)}
+.badge-bug{background:#fef2f2;color:var(--red)}
+.badge-smell{background:#fffbeb;color:var(--amber)}
+.badge-vuln{background:#fdf2f8;color:var(--pink)}
+.badge-yes{color:var(--green);font-weight:700}
+.badge-no{color:var(--text3)}
+
+/* Diagram */
+.diagram{display:flex;align-items:center;justify-content:center;gap:0;padding:2rem 1rem;overflow-x:auto}
+.diagram-node{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1.2rem;text-align:center;min-width:120px;flex-shrink:0}
+.diagram-node .node-label{font-size:.78rem;font-weight:600;color:var(--text)}
+.diagram-node .node-sub{font-size:.68rem;color:var(--text3);margin-top:.15rem}
+.diagram-arrow{color:var(--text3);font-size:1.1rem;padding:0 .5rem;flex-shrink:0}
+.diagram-node.highlight{border-color:var(--accent);background:rgba(37,99,235,.04)}
+
+/* Code */
+.code-block{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;font-family:var(--mono);font-size:.8rem;line-height:1.75;overflow-x:auto;margin:.6rem 0}
+.code-block .kw{color:var(--accent2)}
+.code-block .str{color:var(--green)}
+.code-block .cmt{color:var(--text3)}
+.code-block .num{color:var(--amber)}
+.code-block .fn{color:var(--accent)}
+.code-block .attr{color:#b45309}
+code{font-family:var(--mono);background:var(--bg3);padding:.1rem .35rem;border-radius:3px;font-size:.78rem;color:var(--text2)}
+
+/* Steps */
+.steps{counter-reset:step;display:flex;flex-direction:column;gap:1.25rem}
+.step{counter-increment:step;padding-left:2.75rem;position:relative}
+.step::before{content:counter(step);position:absolute;left:0;top:.1rem;width:1.75rem;height:1.75rem;border-radius:50%;background:var(--bg2);border:1.5px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;color:var(--text2)}
+.step h4{font-size:.9rem;font-weight:600;color:var(--text);margin-bottom:.3rem}
+.step p{font-size:.82rem;color:var(--text2)}
+
+/* Tech stack */
+.tech-pills{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.75rem}
+.tech-pill{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:.35rem .85rem;font-size:.78rem;color:var(--text2);font-weight:500}
+.tech-pill span{color:var(--text3);font-weight:400;margin-left:.25rem}
+
+/* Responsive */
+@media(max-width:1024px){
+  .sidebar{display:none}
+  .main{margin-left:0}
+  .hero{padding:3rem 2rem}
+  .section{padding:2.5rem 2rem}
+  .hero h1{font-size:2rem}
+  .diagram{flex-wrap:wrap;justify-content:center}
+}
+@media(max-width:640px){
+  .hero{padding:2rem 1.25rem}
+  .section{padding:2rem 1.25rem}
+  .hero h1{font-size:1.6rem}
+  .features{grid-template-columns:1fr}
+}
+
+/* Scroll animation */
+.reveal{opacity:0;transform:translateY(16px);transition:opacity .5s ease,transform .5s ease}
+.reveal.visible{opacity:1;transform:translateY(0)}
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<aside class="sidebar">
+  <div class="sidebar-brand">
+    <h2>SQL Review</h2>
+    <span>SonarQube Plugin</span>
+  </div>
+  <nav>
+    <a href="#hero">概览</a>
+    <a href="#features">核心能力</a>
+    <a href="#rules">规则列表</a>
+    <a href="#architecture">工作原理</a>
+    <a href="#quickstart">快速开始</a>
+    <a href="#config">配置参考</a>
+    <a href="#schema">Schema 格式</a>
+    <a href="#techstack">技术栈</a>
+  </nav>
+  <div class="sidebar-footer">
+    v1.0 · MIT License<br>
+    by <a href="http://www.wuweibi.com" target="_blank">marker</a>
+  </div>
+</aside>
+
+<!-- Main Content -->
+<div class="main">
+
+  <!-- Hero -->
+  <section class="hero" id="hero">
+    <img src="image/sonar-sql-review-banner.png" alt="SonarQube SQL Review Plugin" class="hero-banner">
+    <div class="hero-tag">SonarQube Plugin</div>
+    <h1>SQL Review Plugin</h1>
+    <p class="hero-sub">MyBatis XML SQL 质量守门员 — 基于生产数据库 Schema 元数据，在代码审查阶段精准发现 SQL 性能问题与安全隐患。</p>
+    <div class="hero-meta">
+      <span>作者 <strong>marker</strong></span>
+      <span>博客 <a href="http://www.wuweibi.com" target="_blank">wuweibi.com</a></span>
+      <span>版本 <strong>v1.0</strong></span>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="section reveal" id="features">
+    <div class="section-label">核心能力</div>
+    <h2>为 MyBatis 项目量身打造</h2>
+    <p class="section-desc">深度解析 MyBatis Mapper XML，结合真实数据库 Schema，提供精准的 SQL 质量检查。</p>
+    <div class="features">
+      <div class="feature">
+        <div class="feature-icon" style="background:rgba(37,99,235,.08);color:var(--accent)">&#9998;</div>
+        <h4>MyBatis XML 解析</h4>
+        <p>自动解析 Mapper XML 中的 SQL 语句，支持 <code>&lt;if&gt;</code>、<code>&lt;choose&gt;</code>、<code>&lt;foreach&gt;</code> 等动态标签。</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon" style="background:rgba(5,150,105,.08);color:var(--green)">&#9733;</div>
+        <h4>Schema 元数据驱动</h4>
+        <p>基于生产数据库的表结构、索引和行数信息进行精准检查，而非简单的语法匹配。</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon" style="background:rgba(124,58,237,.08);color:var(--accent2)">&#8644;</div>
+        <h4>多环境支持</h4>
+        <p>主环境 (production) + 降级环境 (dev) 双层 Schema 查找策略，确保检查覆盖率最大化。</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon" style="background:rgba(217,119,6,.08);color:var(--amber)">&#9888;</div>
+        <h4>PR 扫描支持</h4>
+        <p>支持 Pull Request 扫描模式，仅报告增量代码中的问题，适配 CI/CD 工作流。</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon" style="background:rgba(219,39,119,.08);color:var(--pink)">&#9906;</div>
+        <h4>精准 Issue 定位</h4>
+        <p>通过 Namespace 匹配，将问题定位到对应的 Java Mapper 接口方法和具体行号。</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon" style="background:rgba(220,38,38,.08);color:var(--red)">&#10004;</div>
+        <h4>7 条内置规则</h4>
+        <p>覆盖索引缺失、全表扫描、SQL 注入、SELECT * 等常见 SQL 反模式，开箱即用。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Rules -->
+  <section class="section reveal" id="rules">
+    <div class="section-label">规则列表</div>
+    <h2>7 条 SQL 质量规则</h2>
+    <p class="section-desc">每条规则针对特定的 SQL 反模式，部分规则需要 Schema 元数据支持。</p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>规则 ID</th><th>名称</th><th>严重级别</th><th>类型</th><th>Schema</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>SQL-001</code></td>
+            <td>WHERE 条件字段缺少索引</td>
+            <td><span class="badge badge-critical">CRITICAL</span></td>
+            <td><span class="badge badge-bug">BUG</span></td>
+            <td><span class="badge-yes">&#10003;</span></td>
+          </tr>
+          <tr>
+            <td><code>SQL-002</code></td>
+            <td>大表全表扫描</td>
+            <td><span class="badge badge-critical">CRITICAL</span></td>
+            <td><span class="badge badge-bug">BUG</span></td>
+            <td><span class="badge-yes">&#10003;</span></td>
+          </tr>
+          <tr>
+            <td><code>SQL-003</code></td>
+            <td>使用 SELECT *</td>
+            <td><span class="badge badge-major">MAJOR</span></td>
+            <td><span class="badge badge-smell">CODE_SMELL</span></td>
+            <td><span class="badge-no">&#10005;</span></td>
+          </tr>
+          <tr>
+            <td><code>SQL-004</code></td>
+            <td>索引列使用函数导致索引失效</td>
+            <td><span class="badge badge-critical">CRITICAL</span></td>
+            <td><span class="badge badge-bug">BUG</span></td>
+            <td><span class="badge-yes">&#10003;</span></td>
+          </tr>
+          <tr>
+            <td><code>SQL-101</code></td>
+            <td>大表查询无 LIMIT</td>
+            <td><span class="badge badge-major">MAJOR</span></td>
+            <td><span class="badge badge-bug">BUG</span></td>
+            <td><span class="badge-yes">&#10003;</span></td>
+          </tr>
+          <tr>
+            <td><code>SQL-103</code></td>
+            <td>LIKE 以 % 开头</td>
+            <td><span class="badge badge-major">MAJOR</span></td>
+            <td><span class="badge badge-smell">CODE_SMELL</span></td>
+            <td><span class="badge-no">&#10005;</span></td>
+          </tr>
+          <tr>
+            <td><code>SQL-201</code></td>
+            <td>动态 SQL 拼接风险</td>
+            <td><span class="badge badge-major">MAJOR</span></td>
+            <td><span class="badge badge-vuln">VULNERABILITY</span></td>
+            <td><span class="badge-no">&#10005;</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Architecture -->
+  <section class="section reveal" id="architecture">
+    <div class="section-label">工作原理</div>
+    <h2>扫描流程</h2>
+    <p class="section-desc">Sensor 驱动的扫描管线：从 XML 文件到 SonarQube Issue。</p>
+    <div class="diagram">
+      <div class="diagram-node">
+        <div class="node-label">MyBatis XML</div>
+        <div class="node-sub">Mapper 文件</div>
+      </div>
+      <div class="diagram-arrow">&#8594;</div>
+      <div class="diagram-node">
+        <div class="node-label">Parser</div>
+        <div class="node-sub">SQL 提取</div>
+      </div>
+      <div class="diagram-arrow">&#8594;</div>
+      <div class="diagram-node">
+        <div class="node-label">SqlStatement</div>
+        <div class="node-sub">语句模型</div>
+      </div>
+      <div class="diagram-arrow">&#8594;</div>
+      <div class="diagram-node highlight">
+        <div class="node-label">Rules Engine</div>
+        <div class="node-sub">7 条规则检查</div>
+      </div>
+      <div class="diagram-arrow">+</div>
+      <div class="diagram-node highlight">
+        <div class="node-label">Schema Registry</div>
+        <div class="node-sub">索引 / 行数</div>
+      </div>
+      <div class="diagram-arrow">&#8594;</div>
+      <div class="diagram-node">
+        <div class="node-label">Issues</div>
+        <div class="node-sub">问题上报</div>
+      </div>
+      <div class="diagram-arrow">&#8594;</div>
+      <div class="diagram-node">
+        <div class="node-label">SonarQube</div>
+        <div class="node-sub">质量门禁</div>
+      </div>
+    </div>
+
+    <h3>核心步骤</h3>
+    <div class="steps">
+      <div class="step">
+        <h4>XML 解析</h4>
+        <p>Sensor 扫描项目中所有 MyBatis Mapper XML 文件，解析 <code>&lt;select&gt;</code>、<code>&lt;insert&gt;</code>、<code>&lt;update&gt;</code>、<code>&lt;delete&gt;</code> 标签中的 SQL。</p>
+      </div>
+      <div class="step">
+        <h4>Schema 加载</h4>
+        <p>从配置的 Schema 目录加载主环境和降级环境的表元数据（列、索引、行数），支持 Entity 到表名的映射。</p>
+      </div>
+      <div class="step">
+        <h4>规则检查</h4>
+        <p>对每条 SQL 执行所有已激活的规则，结合 Schema 信息判断是否存在问题。</p>
+      </div>
+      <div class="step">
+        <h4>Issue 上报</h4>
+        <p>将发现的问题通过 <code>context.newIssue()</code> 挂载到对应的 XML 文件行上，供 SonarQube 展示和统计。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Quick Start -->
+  <section class="section reveal" id="quickstart">
+    <div class="section-label">快速开始</div>
+    <h2>安装与使用</h2>
+    <p class="section-desc">四步完成插件部署和首次扫描。</p>
+    <div class="steps">
+      <div class="step">
+        <h4>构建插件</h4>
+        <p>在项目根目录执行 Maven 构建：</p>
+        <div class="code-block"><span class="fn">cd</span> sonar-sql-review-plugin
+<span class="fn">mvn</span> clean package</div>
+        <p>构建产物位于 <code>target/sonar-sql-review-plugin-*.jar</code></p>
+      </div>
+      <div class="step">
+        <h4>安装到 SonarQube</h4>
+        <p>将 JAR 文件复制到 SonarQube 插件目录，然后重启服务：</p>
+        <div class="code-block"><span class="fn">cp</span> target/sonar-sql-review-plugin-*.jar \
+    <span class="str">$SONARQUBE_HOME</span>/extensions/plugins/</div>
+      </div>
+      <div class="step">
+        <h4>配置 Schema 目录</h4>
+        <p>在 SonarQube 管理界面 <strong>Administration &gt; Configuration &gt; General Settings &gt; SQL Review</strong> 中配置 Schema 路径和环境。</p>
+      </div>
+      <div class="step">
+        <h4>运行扫描</h4>
+        <div class="code-block"><span class="cmt"># 全量扫描</span>
+<span class="fn">sonar-scanner</span> \
+  -Dsonar.projectKey=<span class="str">my-project</span> \
+  -Dsonar.sources=. \
+  -Dsonar.host.url=<span class="str">http://localhost:9000</span> \
+  -Dsonar.token=<span class="str">xxx</span>
+
+<span class="cmt"># PR 扫描</span>
+<span class="fn">sonar-scanner</span> \
+  -Dsonar.projectKey=<span class="str">my-project</span> \
+  -Dsonar.sources=. \
+  -Dsonar.host.url=<span class="str">http://localhost:9000</span> \
+  -Dsonar.token=<span class="str">xxx</span> \
+  -Dsonar.pullrequest.key=<span class="num">123</span> \
+  -Dsonar.pullrequest.branch=<span class="str">feature/xxx</span> \
+  -Dsonar.pullrequest.base=<span class="str">main</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Configuration -->
+  <section class="section reveal" id="config">
+    <div class="section-label">配置参考</div>
+    <h2>插件配置项</h2>
+    <p class="section-desc">在 SonarQube Administration 界面中配置以下参数。</p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>配置键</th><th>说明</th><th>默认值</th><th>类型</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>sonar.sql-review.schema-path</code></td>
+            <td>Schema 根目录，子目录按环境名组织</td>
+            <td><code>/opt/sonar-schemas</code></td>
+            <td>STRING</td>
+          </tr>
+          <tr>
+            <td><code>sonar.sql-review.primary-env</code></td>
+            <td>主环境名称（优先查找）</td>
+            <td><code>production</code></td>
+            <td>STRING</td>
+          </tr>
+          <tr>
+            <td><code>sonar.sql-review.fallback-env</code></td>
+            <td>降级环境名称（主环境找不到时回退）</td>
+            <td><code>dev</code></td>
+            <td>STRING</td>
+          </tr>
+          <tr>
+            <td><code>sonar.sql-review.large-table-threshold</code></td>
+            <td>大表行数阈值，超过此行数启用全表扫描检查</td>
+            <td><code>10000</code></td>
+            <td>INTEGER</td>
+          </tr>
+          <tr>
+            <td><code>sonar.sql-review.no-limit-threshold</code></td>
+            <td>触发无 LIMIT 告警的表行数阈值</td>
+            <td><code>50000</code></td>
+            <td>INTEGER</td>
+          </tr>
+          <tr>
+            <td><code>sonar.sql-review.max-joins</code></td>
+            <td>单条 SQL 最大 JOIN 表数</td>
+            <td><code>3</code></td>
+            <td>INTEGER</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Schema 目录结构</h3>
+    <div class="code-block"><span class="str">/opt/sonar-schemas/</span>
+├── <span class="fn">production/</span>          <span class="cmt"># 主环境</span>
+│   ├── app_production/
+│   │   ├── app_user.json
+│   │   └── app_article.json
+│   └── order_production/
+│       └── order_info.json
+├── <span class="fn">dev/</span>                 <span class="cmt"># 降级环境</span>
+│   └── app_dev/
+│       └── app_new_feature.json
+└── entity_table_map.json  <span class="cmt"># Entity → 表名映射（可选）</span></div>
+  </section>
+
+  <!-- Schema -->
+  <section class="section reveal" id="schema">
+    <div class="section-label">Schema 格式</div>
+    <h2>表元数据 JSON 规范</h2>
+    <p class="section-desc">每张表对应一个 JSON 文件，包含列信息、索引信息和行数估算。</p>
+    <div class="code-block">{
+  <span class="attr">"table"</span>: <span class="str">"sys_user"</span>,
+  <span class="attr">"database"</span>: <span class="str">"platform_db"</span>,
+  <span class="attr">"environment"</span>: <span class="str">"production"</span>,
+  <span class="attr">"rowCount"</span>: <span class="num">150000</span>,
+  <span class="attr">"lastSyncTime"</span>: <span class="str">"2024-01-15 10:30:00"</span>,
+  <span class="attr">"columns"</span>: [
+    { <span class="attr">"name"</span>: <span class="str">"id"</span>,       <span class="attr">"type"</span>: <span class="str">"bigint"</span>,      <span class="attr">"nullable"</span>: <span class="kw">false</span> },
+    { <span class="attr">"name"</span>: <span class="str">"username"</span>,  <span class="attr">"type"</span>: <span class="str">"varchar(64)"</span>,  <span class="attr">"nullable"</span>: <span class="kw">false</span> },
+    { <span class="attr">"name"</span>: <span class="str">"email"</span>,     <span class="attr">"type"</span>: <span class="str">"varchar(128)"</span>, <span class="attr">"nullable"</span>: <span class="kw">true</span>  }
+  ],
+  <span class="attr">"indexes"</span>: [
+    { <span class="attr">"name"</span>: <span class="str">"idx_username"</span>, <span class="attr">"columns"</span>: [<span class="str">"username"</span>], <span class="attr">"unique"</span>: <span class="kw">true</span>  },
+    { <span class="attr">"name"</span>: <span class="str">"idx_email"</span>,    <span class="attr">"columns"</span>: [<span class="str">"email"</span>],    <span class="attr">"unique"</span>: <span class="kw">false</span> }
+  ]
+}</div>
+    <p style="margin-top:.75rem;font-size:.8rem;color:var(--text3)">Schema 文件需部署在 sonar-scanner 执行的服务器上。推荐使用 <code>export_schema.py</code> 脚本从数据库自动导出。</p>
+  </section>
+
+  <!-- Tech Stack -->
+  <section class="section reveal" id="techstack">
+    <div class="section-label">技术栈</div>
+    <h2>构建与技术</h2>
+    <div class="tech-pills">
+      <div class="tech-pill">SonarQube Plugin API <span>10.14.0.2599</span></div>
+      <div class="tech-pill">最低兼容 <span>10.11.0.2468</span></div>
+      <div class="tech-pill">Java <span>17</span></div>
+      <div class="tech-pill">Maven <span>构建工具</span></div>
+      <div class="tech-pill">Gson <span>JSON 解析</span></div>
+      <div class="tech-pill">JUnit 5 <span>测试框架</span></div>
+      <div class="tech-pill">SLF4J <span>日志</span></div>
+    </div>
+
+    <h3>项目结构</h3>
+    <div class="code-block"><span class="fn">sonar-sql-review-plugin/</span>
+├── src/main/java/com/yourcompany/sqlreview/
+│   ├── <span class="attr">SqlReviewPlugin.java</span>       <span class="cmt"># 插件入口</span>
+│   ├── <span class="fn">parser/</span>                     <span class="cmt"># XML 解析器</span>
+│   │   ├── MyBatisXmlParser.java
+│   │   └── SqlStatement.java
+│   ├── <span class="fn">rules/</span>                      <span class="cmt"># 规则引擎</span>
+│   │   ├── SqlRulesDefinition.java  <span class="cmt"># 规则注册</span>
+│   │   ├── SqlXmlRule.java          <span class="cmt"># 规则接口</span>
+│   │   ├── NoIndexWhereRule.java    <span class="cmt"># SQL-001</span>
+│   │   ├── FullTableScanRule.java   <span class="cmt"># SQL-002</span>
+│   │   ├── SelectStarXmlRule.java   <span class="cmt"># SQL-003</span>
+│   │   ├── IndexFunctionRule.java   <span class="cmt"># SQL-004</span>
+│   │   ├── NoLimitLargeTableRule.java <span class="cmt"># SQL-101</span>
+│   │   ├── LikeLeadingWildcardRule.java <span class="cmt"># SQL-103</span>
+│   │   └── DynamicConcatRule.java   <span class="cmt"># SQL-201</span>
+│   ├── <span class="fn">schema/</span>                     <span class="cmt"># Schema 管理</span>
+│   │   ├── SchemaRegistry.java
+│   │   ├── TableMetadata.java
+│   │   └── IndexMetadata.java
+│   ├── <span class="fn">sensor/</span>
+│   │   └── MyBatisXmlSensor.java    <span class="cmt"># Sensor 实现</span>
+│   ├── <span class="fn">settings/</span>
+│   │   └── SqlReviewProperties.java <span class="cmt"># 配置项定义</span>
+│   └── <span class="fn">util/</span>
+│       └── NameConverter.java       <span class="cmt"># 命名转换</span>
+└── pom.xml</div>
+  </section>
+
+</div>
+
+<script>
+const reveals = document.querySelectorAll('.reveal');
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.1 });
+reveals.forEach(el => observer.observe(el));
+
+const sections = document.querySelectorAll('section[id]');
+const navLinks = document.querySelectorAll('.sidebar nav a');
+window.addEventListener('scroll', () => {
+  let current = '';
+  sections.forEach(s => {
+    if (window.scrollY >= s.offsetTop - 120) current = s.id;
+  });
+  navLinks.forEach(a => {
+    a.classList.remove('active');
+    if (a.getAttribute('href') === '#' + current) a.classList.add('active');
+  });
+});
+</script>
+</body>
+</html>
