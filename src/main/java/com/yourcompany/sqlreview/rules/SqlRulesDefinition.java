@@ -15,7 +15,7 @@ public class SqlRulesDefinition implements RulesDefinition {
 
     public static final String REPO_KEY = "sql-review";
     public static final String REPO_NAME = "SQL Review";
-    public static final String LANGUAGE = "java";
+    public static final String LANGUAGE = "xml";
 
     public static final String SQL_001 = "SQL-001";
     public static final String SQL_002 = "SQL-002";
