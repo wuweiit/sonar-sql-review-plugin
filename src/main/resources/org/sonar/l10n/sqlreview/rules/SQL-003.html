@@ -1,0 +1,25 @@
+<h2>使用 SELECT *</h2>
+<p>使用 SELECT * 会返回不必要的列，增加网络传输和内存消耗。</p>
+
+<h3>风险说明</h3>
+<p>SELECT * 的问题：
+<ul>
+<li>返回不需要的列，浪费网络带宽</li>
+<li>增加内存消耗</li>
+<li>无法利用覆盖索引优化</li>
+<li>表结构变更可能导致程序错误</li>
+</ul>
+</p>
+
+<h3>示例</h3>
+<pre><code>-- 错误
+SELECT * FROM app_user WHERE user_id = 1;
+
+-- 正确
+SELECT user_id, user_name, email FROM app_user WHERE user_id = 1;</code></pre>
+
+<h3>建议</h3>
+<ul>
+<li>明确指定需要的列</li>
+<li>使用 DTO 模式只映射需要的字段</li>
+</ul>

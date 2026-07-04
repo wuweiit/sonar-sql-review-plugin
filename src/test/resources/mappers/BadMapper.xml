@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.mapper.BadMapper">
+    <!-- SQL-003: SELECT * -->
+    <select id="listAll" resultType="com.example.entity.AppUser">
+        SELECT * FROM app_user
+    </select>
+    <!-- SQL-001: WHERE 字段无索引 -->
+    <select id="listByStatus" resultType="com.example.entity.AppUser">
+        SELECT user_id, user_name FROM app_user WHERE status = #{status}
+    </select>
+    <!-- SQL-201: 动态拼接 -->
+    <select id="unsafeQuery" resultType="com.example.entity.AppUser">
+        SELECT user_id FROM app_user WHERE user_name = '${name}'
+    </select>
+    <!-- SQL-002: 大表动态条件可能全部为 null -->
+    <select id="searchUsers" resultType="com.example.entity.AppUser">
+        SELECT user_id, user_name FROM app_user WHERE 1=1
+        <if test="name != null">AND user_name = #{name}</if>
+        <if test="email != null">AND email = #{email}</if>
+    </select>
+</mapper>

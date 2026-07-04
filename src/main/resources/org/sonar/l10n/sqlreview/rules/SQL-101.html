@@ -1,0 +1,25 @@
+<h2>大表查询无 LIMIT</h2>
+<p>对大表执行查询未设置 LIMIT，可能返回过多数据。</p>
+
+<h3>风险说明</h3>
+<p>没有 LIMIT 的查询可能返回数十万甚至数百万行数据，导致：
+<ul>
+<li>内存溢出</li>
+<li>网络超时</li>
+<li>应用崩溃</li>
+</ul>
+</p>
+
+<h3>示例</h3>
+<pre><code>-- 错误：可能返回所有行
+SELECT user_id, user_name FROM app_user WHERE status = 1;
+
+-- 正确：限制返回行数
+SELECT user_id, user_name FROM app_user WHERE status = 1 LIMIT 100;</code></pre>
+
+<h3>建议</h3>
+<ul>
+<li>所有查询都应添加 LIMIT</li>
+<li>使用分页查询处理大量数据</li>
+<li>设置合理的超时时间</li>
+</ul>

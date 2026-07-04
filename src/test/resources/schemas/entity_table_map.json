@@ -1,0 +1,5 @@
+{
+  "AppUserEntity": "app_user",
+  "AppArticleEntity": "app_article",
+  "AppNewFeatureEntity": "app_new_feature"
+}

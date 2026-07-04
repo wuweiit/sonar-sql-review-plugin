@@ -1,0 +1,14 @@
+{
+  "table": "app_article",
+  "database": "app_production",
+  "environment": "production",
+  "rowCount": 200000,
+  "columns": [
+    {"name": "id", "type": "bigint", "nullable": false},
+    {"name": "title", "type": "varchar(256)", "nullable": false},
+    {"name": "category_id", "type": "bigint", "nullable": false}
+  ],
+  "indexes": [
+    {"name": "PRIMARY", "columns": ["id"], "unique": true, "type": "BTREE"}
+  ]
+}

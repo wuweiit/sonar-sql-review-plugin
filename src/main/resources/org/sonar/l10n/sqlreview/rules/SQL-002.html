@@ -1,0 +1,19 @@
+<h2>大表全表扫描</h2>
+<p>对大表（超过阈值行数）执行无 WHERE 条件或条件无索引的查询。</p>
+
+<h3>风险说明</h3>
+<p>大表（通常超过 10,000 行）的全表扫描会消耗大量 I/O 和 CPU 资源，严重影响系统性能。</p>
+
+<h3>示例</h3>
+<pre><code>-- 错误：无条件查询大表
+SELECT * FROM app_user;
+
+-- 正确：添加 WHERE 条件并使用索引字段
+SELECT user_id, user_name FROM app_user WHERE user_name = 'test' LIMIT 100;</code></pre>
+
+<h3>建议</h3>
+<ul>
+<li>始终为大表查询添加 WHERE 条件</li>
+<li>确保 WHERE 条件字段有索引</li>
+<li>使用 LIMIT 限制返回行数</li>
+</ul>

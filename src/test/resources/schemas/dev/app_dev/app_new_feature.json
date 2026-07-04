@@ -1,0 +1,14 @@
+{
+  "table": "app_new_feature",
+  "database": "app_dev",
+  "environment": "dev",
+  "rowCount": 100,
+  "columns": [
+    {"name": "id", "type": "bigint", "nullable": false},
+    {"name": "feature_name", "type": "varchar(128)", "nullable": false},
+    {"name": "status", "type": "tinyint", "nullable": false}
+  ],
+  "indexes": [
+    {"name": "PRIMARY", "columns": ["id"], "unique": true, "type": "BTREE"}
+  ]
+}

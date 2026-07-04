@@ -1,0 +1,23 @@
+<h2>动态 SQL 拼接风险</h2>
+<p>使用 ${} 进行 SQL 拼接存在 SQL 注入风险，应使用 #{} 参数化查询。</p>
+
+<h3>风险说明</h3>
+<p>MyBatis 中的 ${} 会直接将参数值拼接到 SQL 中，攻击者可以构造恶意输入执行任意 SQL。</p>
+
+<h3>示例</h3>
+<pre><code>&lt;!-- 错误：SQL 注入风险 --&gt;
+&lt;select id="getUser"&gt;
+  SELECT * FROM app_user WHERE user_name = '${name}'
+&lt;/select&gt;
+
+&lt;!-- 正确：参数化查询 --&gt;
+&lt;select id="getUser"&gt;
+  SELECT * FROM app_user WHERE user_name = #{name}
+&lt;/select&gt;</code></pre>
+
+<h3>建议</h3>
+<ul>
+<li>始终使用 #{} 替代 ${}</li>
+<li>仅在动态表名、列名时使用 ${}，并做白名单校验</li>
+<li>使用预编译语句</li>
+</ul>

@@ -1,0 +1,24 @@
+<h2>WHERE 条件字段缺少索引</h2>
+<p>WHERE 子句中使用的字段在生产数据库中没有索引，可能导致性能问题。</p>
+
+<h3>风险说明</h3>
+<p>当查询条件中的字段没有索引时，数据库需要执行全表扫描来查找匹配的行。对于大表（超过10,000行），这会严重影响查询性能。</p>
+
+<h3>示例</h3>
+<p><strong>错误示例：</strong></p>
+<pre><code>SELECT user_id, user_name FROM app_user WHERE status = 1;
+-- status 字段无索引，将导致全表扫描</code></pre>
+
+<p><strong>正确示例：</strong></p>
+<pre><code>-- 方案1: 为 status 字段添加索引
+CREATE INDEX idx_status ON app_user(status);
+
+-- 方案2: 使用已有索引的字段
+SELECT user_id, user_name FROM app_user WHERE user_name = 'test';</code></pre>
+
+<h3>建议</h3>
+<ul>
+<li>为 WHERE 条件中频繁使用的字段添加索引</li>
+<li>考虑使用复合索引覆盖多个查询条件</li>
+<li>定期审查索引使用情况</li>
+</ul>

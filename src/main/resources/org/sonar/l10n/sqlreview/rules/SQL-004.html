@@ -1,0 +1,21 @@
+<h2>索引列使用函数导致索引失效</h2>
+<p>在 WHERE 条件中对索引列使用函数会导致索引失效，触发全表扫描。</p>
+
+<h3>风险说明</h3>
+<p>当对索引列使用函数时，数据库无法利用索引进行快速查找，必须对每一行计算函数值。</p>
+
+<h3>示例</h3>
+<pre><code>-- 错误：索引失效
+SELECT * FROM app_user WHERE YEAR(create_time) = 2023;
+SELECT * FROM app_user WHERE LOWER(user_name) = 'test';
+
+-- 正确：函数移到右侧
+SELECT * FROM app_user WHERE create_time >= '2023-01-01' AND create_time < '2024-01-01';
+SELECT * FROM app_user WHERE user_name = 'test';</code></pre>
+
+<h3>建议</h3>
+<ul>
+<li>避免在 WHERE 条件中对索引列使用函数</li>
+<li>将计算移到等号右侧</li>
+<li>考虑使用计算列或虚拟列</li>
+</ul>

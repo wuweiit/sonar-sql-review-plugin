@@ -1,0 +1,19 @@
+<h2>LIKE 以 % 开头</h2>
+<p>LIKE '%xxx' 模式无法使用索引，会导致全表扫描。</p>
+
+<h3>风险说明</h3>
+<p>当 LIKE 模式以 % 开头时，数据库无法利用索引进行前缀匹配，必须扫描所有行。</p>
+
+<h3>示例</h3>
+<pre><code>-- 错误：索引失效
+SELECT * FROM app_user WHERE user_name LIKE '%test';
+
+-- 正确：使用前缀匹配
+SELECT * FROM app_user WHERE user_name LIKE 'test%';</code></pre>
+
+<h3>建议</h3>
+<ul>
+<li>避免使用 % 开头的 LIKE</li>
+<li>考虑使用全文索引</li>
+<li>使用 Elasticsearch 等搜索引擎处理模糊查询</li>
+</ul>

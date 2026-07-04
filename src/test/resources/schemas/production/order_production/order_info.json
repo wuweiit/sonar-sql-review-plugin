@@ -1,0 +1,17 @@
+{
+  "table": "order_info",
+  "database": "order_production",
+  "environment": "production",
+  "rowCount": 500000,
+  "columns": [
+    {"name": "order_id", "type": "bigint", "nullable": false},
+    {"name": "user_id", "type": "bigint", "nullable": false},
+    {"name": "order_no", "type": "varchar(64)", "nullable": false},
+    {"name": "status", "type": "tinyint", "nullable": false}
+  ],
+  "indexes": [
+    {"name": "PRIMARY", "columns": ["order_id"], "unique": true, "type": "BTREE"},
+    {"name": "idx_user_id", "columns": ["user_id"], "unique": false, "type": "BTREE"},
+    {"name": "uk_order_no", "columns": ["order_no"], "unique": true, "type": "BTREE"}
+  ]
+}
