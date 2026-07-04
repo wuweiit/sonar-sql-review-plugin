@@ -116,6 +116,10 @@ public class MyBatisXmlSensor implements Sensor {
                 for (SqlXmlRule rule : rules) {
                     List<Issue> issues = rule.check(stmt, schema);
                     for (Issue issue : issues) {
+                        if (!isRuleActive(context, issue.getRuleId())) {
+                            LOG.debug("Skipping inactive SQL Review rule {}", issue.getRuleId());
+                            continue;
+                        }
                         if (reportIssue(context, targetFile, stmt, issue)) {
                             issueCount++;
                         }
@@ -148,8 +152,27 @@ public class MyBatisXmlSensor implements Sensor {
     }
 
     /**
-     * 从文件路径提取全限定类名
+     * Resolve a Java file to its fully qualified class name.
      */
+    private String javaFileToClassName(InputFile javaFile) {
+        String filename = javaFile.filename();
+        if (!filename.endsWith(".java")) {
+            return null;
+        }
+
+        try {
+            Matcher matcher = PACKAGE_PATTERN.matcher(javaFile.contents());
+            if (matcher.find()) {
+                return matcher.group(1) + "." + filename.substring(0, filename.length() - 5);
+            }
+        } catch (IOException e) {
+            LOG.warn("Failed to read Java file for package detection: {}", javaFile.relativePath(), e);
+        }
+
+        String path = javaFile.relativePath().replace('\\', '/');
+        return pathToClassName(path);
+    }
+
     private String pathToClassName(String path) {
         // 查找 src/main/java/ 或 src/test/java/ 之后的部分
         int idx = path.indexOf("src/main/java/");
@@ -179,54 +202,68 @@ public class MyBatisXmlSensor implements Sensor {
      * 选择 Issue 挂载的目标文件
      * 规则语言是 java，必须挂载到 Java 文件上
      */
+    private boolean isRuleActive(SensorContext context, String ruleId) {
+        return context.activeRules().find(RuleKey.of(SqlRulesDefinition.REPO_KEY, ruleId)) != null;
+    }
+
     private InputFile selectTargetFile(InputFile javaFile, InputFile xmlFile) {
         // 必须挂载到 Java 文件（规则语言是 java）
         if (javaFile != null) {
             return javaFile;
         }
-        // 回退到 XML 文件（如果没有找到 Java 文件）
-        return xmlFile;
+        LOG.warn("Cannot report SQL Review issue for {}: no Java mapper matched namespace",
+                xmlFile.relativePath());
+        return null;
     }
 
-    private void reportIssue(SensorContext context, InputFile targetFile, SqlStatement stmt, Issue issue) {
+    private boolean reportIssue(SensorContext context, InputFile targetFile, SqlStatement stmt, Issue issue) {
         RuleKey ruleKey = RuleKey.of(SqlRulesDefinition.REPO_KEY, issue.getRuleId());
-        
-        LOG.info("[AA] ========== reportIssue START ==========");
-        LOG.info("[AA] RuleKey: {}", ruleKey);
-        LOG.info("[AA] Severity: {}", issue.getSeverity());
-        LOG.info("[AA] RuleId: {}", issue.getRuleId());
-        LOG.info("[AA] Statement ID: {}", stmt.getId());
-        LOG.info("[AA] Message: {}", issue.getMessage());
-        LOG.info("[AA] Target File: {}", targetFile.filename());
-        LOG.info("[AA] Target File Path: {}", targetFile.relativePath());
-        LOG.info("[AA] Target File Language: {}", targetFile.language());
-        LOG.info("[AA] Target File Status: {}", targetFile.status());
-        LOG.info("[AA] Target File Type: {}", targetFile.type());
-        LOG.info("[AA] Line Number: {}", stmt.getLineNumber());
-        LOG.info("[AA] SQL: {}", stmt.getSql());
-        LOG.info("[AA] Namespace: {}", stmt.getNamespace());
-        LOG.info("[AA] Source XML: {}", stmt.getFilePath());
-        
+        int issueLine = findJavaMethodLine(targetFile, stmt.getId());
+        if (issueLine <= 0) {
+            issueLine = 1;
+            LOG.warn("Mapper method {} not found in {}; reporting SQL issue on line 1. Source XML: {}:{}",
+                    stmt.getId(), targetFile.relativePath(), stmt.getFilePath(), stmt.getLineNumber());
+        }
+
         try {
             NewIssue newIssue = context.newIssue();
-            LOG.info("[AA] NewIssue created: {}", newIssue != null ? "OK" : "NULL");
-            
             NewIssueLocation location = newIssue.newLocation()
                     .on(targetFile)
-                    .at(targetFile.selectLine(Math.max(1, stmt.getLineNumber())))
-                    .message("[SQL Review] " + issue.getMessage() + " (from " + stmt.getFilePath() + ")");
-            LOG.info("[AA] Location created: {}", location != null ? "OK" : "NULL");
-            
+                    .at(targetFile.selectLine(issueLine))
+                    .message("[SQL Review] " + issue.getMessage()
+                            + " (from " + stmt.getFilePath() + ":" + stmt.getLineNumber() + ")");
+
             newIssue.forRule(ruleKey)
                     .at(location)
                     .save();
-            LOG.info("[AA] Issue saved successfully!");
-            LOG.info("[AA] ========== reportIssue END (SUCCESS) ==========");
+            LOG.info("Reported SQL Review issue {} on {}:{} (source XML: {}:{})",
+                    ruleKey, targetFile.relativePath(), issueLine, stmt.getFilePath(), stmt.getLineNumber());
+            return true;
         } catch (Exception e) {
-            LOG.error("[AA] ========== reportIssue END (FAILED) ==========");
-            LOG.error("[AA] Exception type: {}", e.getClass().getName());
-            LOG.error("[AA] Exception message: {}", e.getMessage());
-            LOG.error("[AA] Exception stacktrace:", e);
+            LOG.error("Failed to report SQL Review issue {} on {}:{}",
+                    ruleKey, targetFile.relativePath(), issueLine, e);
+            return false;
         }
+    }
+
+    private int findJavaMethodLine(InputFile javaFile, String methodName) {
+        if (methodName == null || methodName.isEmpty()) {
+            return -1;
+        }
+
+        Pattern methodPattern = Pattern.compile("^\\s*(?:public\\s+|default\\s+|static\\s+|abstract\\s+)*"
+                + "(?:[\\w<>\\[\\],.?]+\\s+)+" + Pattern.quote(methodName) + "\\s*\\(");
+
+        try {
+            String[] lines = javaFile.contents().split("\\R", -1);
+            for (int lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+                if (methodPattern.matcher(lines[lineIndex]).find()) {
+                    return lineIndex + 1;
+                }
+            }
+        } catch (IOException e) {
+            LOG.warn("Failed to read Java mapper file for method detection: {}", javaFile.relativePath(), e);
+        }
+        return -1;
     }
 }
