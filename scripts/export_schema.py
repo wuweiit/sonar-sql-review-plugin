@@ -38,9 +38,9 @@ Schema 导出脚本（多库版）
 
   # 导出开发环境
 python export_schema.py \
-    --host=dev.jinliwangluo.com --port=3306 \
+    --host=dev.xxx.com --port=3306 \
     --user=root --password=xxxx \
-    --db-prefix=pzds_ \
+    --db-prefix=db_ \
     --env=dev \
     --output=./sonar-schemas
 

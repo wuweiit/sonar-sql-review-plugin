@@ -6,7 +6,7 @@
 
     <groupId>com.yourcompany</groupId>
     <artifactId>sonar-sql-review-plugin</artifactId>
-    <version>1.0.0</version>
+    <version>${sonar.api.version}-1.0</version>
     <packaging>sonar-plugin</packaging>
 
     <name>SonarQube SQL Review Plugin</name>
