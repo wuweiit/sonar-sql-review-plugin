@@ -1,5 +1,5 @@
 # SonarQube SQL Review Plugin
-![sonar-sql-review-banner.png](docs%2Fimage%2Fsonar-sql-review-banner.png)
+![sonar-sql-review-banner.png](docs%2Fimage%2Fsonar-sql-review-banner.jpg)
 
 
 一个用于检查 MyBatis XML Mapper SQL 语句质量的 SonarQube 插件。通过分析 SQL 语法并结合生产数据库 Schema 元数据，在代码审查阶段发现潜在的性能问题和安全隐患。
