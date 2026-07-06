@@ -1,0 +1,16 @@
+{
+  "table": "app_article_category",
+  "database": "app_production",
+  "environment": "production",
+  "rowCount": 50,
+  "columns": [
+    {"name": "id", "type": "bigint", "nullable": false},
+    {"name": "article_id", "type": "bigint", "nullable": false},
+    {"name": "category_id", "type": "bigint", "nullable": false}
+  ],
+  "indexes": [
+    {"name": "PRIMARY", "columns": ["id"], "unique": true, "type": "BTREE"},
+    {"name": "idx_article_id", "columns": ["article_id"], "unique": false, "type": "BTREE"},
+    {"name": "idx_category_id", "columns": ["category_id"], "unique": false, "type": "BTREE"}
+  ]
+}

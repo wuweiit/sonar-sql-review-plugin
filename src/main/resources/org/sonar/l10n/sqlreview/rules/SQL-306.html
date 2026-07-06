@@ -1,0 +1,35 @@
+<h2>Lambda .apply() 中索引列使用函数导致索引失效</h2>
+<p>使用 MyBatis Plus 的 <code>.apply()</code> 方法传入原始 SQL 片段时，如果对索引列使用了函数（如 YEAR()、DATE()、UPPER() 等），将导致该列的索引失效。</p>
+
+<h3>风险说明</h3>
+<p>索引列使用函数的问题：
+<ul>
+<li>B-Tree 索引无法识别函数转换后的值，必须全表扫描</li>
+<li>在大表上严重影响查询性能</li>
+<li>即使该列有索引，数据库也无法利用</li>
+</ul>
+</p>
+
+<h3>示例</h3>
+<pre><code>// 错误：YEAR() 函数包裹索引列
+Wrappers.&lt;AppUserEntity&gt;lambdaQuery()
+    .apply("YEAR(create_time) = {0}", 2024)  // create_time 索引失效
+    .list();
+
+// 正确：使用日期范围查询
+Wrappers.&lt;AppUserEntity&gt;lambdaQuery()
+    .apply("create_time &gt;= {0} AND create_time &lt; {1}",
+        "2024-01-01", "2025-01-01")  // create_time 索引可用
+    .list();
+
+// 错误：UPPER() 函数包裹索引列
+Wrappers.&lt;AppUserEntity&gt;lambdaQuery()
+    .apply("UPPER(user_name) = {0}", "JOHN")  // user_name 索引失效
+    .list();</code></pre>
+
+<h3>建议</h3>
+<ul>
+<li>将函数从列的一侧移到值的一侧</li>
+<li>使用日期范围查询替代 YEAR()/MONTH() 等函数</li>
+<li>对于大小写不敏感查询，考虑使用不区分大小写的排序规则（collation）</li>
+</ul>

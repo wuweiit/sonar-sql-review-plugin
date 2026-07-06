@@ -1,0 +1,38 @@
+<h2>Lambda 大表查询无 LIMIT</h2>
+<p>对超过阈值行数的大表执行 Lambda 查询，但没有 <code>.last("LIMIT N")</code> 或分页保护，可能返回海量数据。</p>
+
+<h3>风险说明</h3>
+<p>大表查询无 LIMIT 的问题：
+<ul>
+<li>返回数据量过大，消耗大量内存和网络带宽</li>
+<li>可能导致 JVM OOM（内存溢出）</li>
+<li>数据库查询时间过长，影响服务响应</li>
+<li>在高并发场景下可能导致数据库连接池耗尽</li>
+</ul>
+</p>
+
+<h3>示例</h3>
+<pre><code>// 错误：大表查询无 LIMIT
+Wrappers.&lt;AppUserEntity&gt;lambdaQuery()
+    .eq(AppUserEntity::getStatus, 1)
+    .list();  // app_user 有 15 万行，可能返回大量数据
+
+// 正确：添加 LIMIT 保护
+Wrappers.&lt;AppUserEntity&gt;lambdaQuery()
+    .eq(AppUserEntity::getStatus, 1)
+    .last("LIMIT 1000")
+    .list();
+
+// 正确：使用分页查询
+Page&lt;AppUserEntity&gt; page = userService.page(
+    new Page&lt;&gt;(1, 20),
+    Wrappers.&lt;AppUserEntity&gt;lambdaQuery()
+        .eq(AppUserEntity::getStatus, 1)
+);</code></pre>
+
+<h3>建议</h3>
+<ul>
+<li>对大表查询始终添加 LIMIT 或使用分页</li>
+<li>使用 <code>.last("LIMIT N")</code> 或 MyBatis Plus 的 Page 分页</li>
+<li>对于批量处理，使用游标或分批查询</li>
+</ul>

@@ -1,0 +1,27 @@
+<h2>Lambda WHERE 条件字段缺少索引</h2>
+<p>使用 MyBatis Plus Lambda Wrapper 的 <code>.eq()</code>、<code>.like()</code>、<code>.in()</code> 等方法构建的 WHERE 条件，其对应字段在生产数据库中缺少索引。</p>
+
+<h3>风险说明</h3>
+<p>条件字段缺少索引的问题：
+<ul>
+<li>导致全表扫描，严重影响查询性能</li>
+<li>在大表上查询时间可能从毫秒级变为秒级</li>
+<li>增加数据库 CPU 和 IO 压力</li>
+</ul>
+</p>
+
+<h3>示例</h3>
+<pre><code>// 假设 app_user 表的 status 字段没有索引
+Wrappers.&lt;AppUserEntity&gt;lambdaQuery()
+    .eq(AppUserEntity::getStatus, 1)  // 如果 status 没有索引，将全表扫描
+    .list();
+
+// 修复：在 status 字段上创建索引
+// CREATE INDEX idx_status ON app_user(status);</code></pre>
+
+<h3>建议</h3>
+<ul>
+<li>为常用的 WHERE 条件字段创建索引</li>
+<li>对于组合查询，考虑创建联合索引</li>
+<li>定期检查慢查询日志，发现缺少索引的字段</li>
+</ul>

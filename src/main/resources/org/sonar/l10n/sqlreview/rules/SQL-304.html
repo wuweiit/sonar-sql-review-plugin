@@ -1,0 +1,29 @@
+<h2>Lambda LIKE 以 % 开头</h2>
+<p>使用 MyBatis Plus Lambda Wrapper 的 <code>.like()</code> 方法时，查询值以 <code>%</code> 开头，导致无法使用索引。</p>
+
+<h3>风险说明</h3>
+<p>LIKE '%xxx' 模式的问题：
+<ul>
+<li>无法利用 B-Tree 索引进行前缀匹配</li>
+<li>导致全表扫描，性能严重下降</li>
+<li>在大表上可能引发查询超时</li>
+</ul>
+</p>
+
+<h3>示例</h3>
+<pre><code>// 错误：前导通配符无法使用索引
+Wrappers.&lt;AppUserEntity&gt;lambdaQuery()
+    .like(AppUserEntity::getUserName, "%张")  // LIKE '%张' 全表扫描
+    .list();
+
+// 正确：右模糊可以使用索引
+Wrappers.&lt;AppUserEntity&gt;lambdaQuery()
+    .likeRight(AppUserEntity::getUserName, "张")  // LIKE '张%' 使用索引
+    .list();</code></pre>
+
+<h3>建议</h3>
+<ul>
+<li>尽量使用右模糊（likeRight）代替全模糊（like）</li>
+<li>如果必须使用左模糊，考虑全文索引或搜索引擎</li>
+<li>对于前缀查询，使用 <code>.likeRight()</code> 或 <code>.likeRight(Entity::getXxx, prefix)</code></li>
+</ul>

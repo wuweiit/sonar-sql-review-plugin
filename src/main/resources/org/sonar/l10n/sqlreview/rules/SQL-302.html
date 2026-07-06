@@ -1,0 +1,29 @@
+<h2>Lambda 查询缺少 WHERE 条件</h2>
+<p>使用 MyBatis Plus Lambda Wrapper 构建查询时，如果没有添加任何 WHERE 条件（如 .eq()、.like() 等），将导致全表扫描。</p>
+
+<h3>风险说明</h3>
+<p>无条件的 Lambda 查询问题：
+<ul>
+<li>导致全表扫描，严重影响数据库性能</li>
+<li>返回大量无用数据，消耗内存和网络带宽</li>
+<li>在生产环境大表上可能导致服务超时或 OOM</li>
+</ul>
+</p>
+
+<h3>示例</h3>
+<pre><code>// 错误：无 WHERE 条件
+Wrappers.&lt;AppUserEntity&gt;lambdaQuery()
+    .select(AppUserEntity::getUserId, AppUserEntity::getUserName)
+    .list();
+
+// 正确：添加 WHERE 条件
+Wrappers.&lt;AppUserEntity&gt;lambdaQuery()
+    .select(AppUserEntity::getUserId, AppUserEntity::getUserName)
+    .eq(AppUserEntity::getStatus, 1)
+    .list();</code></pre>
+
+<h3>建议</h3>
+<ul>
+<li>确保 Lambda 查询链中至少包含一个条件方法（.eq()、.like()、.in() 等）</li>
+<li>若确实需要全表查询，使用 .last("LIMIT N") 限制返回行数</li>
+</ul>

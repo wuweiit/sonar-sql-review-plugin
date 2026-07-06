@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -41,7 +42,7 @@ class SchemaRegistryTest {
 
     @Test
     void load_shouldCountTables() {
-        assertThat(registry.getPrimaryTableCount()).isEqualTo(3); // app_user + app_article + order_info
+        assertThat(registry.getPrimaryTableCount()).isEqualTo(4); // app_user + app_article + app_article_category + order_info
         assertThat(registry.getFallbackTableCount()).isEqualTo(1); // app_new_feature
     }
 
@@ -114,7 +115,8 @@ class SchemaRegistryTest {
 
     @Test
     void hasIndex_missingIndex_returnsFalse() {
-        assertThat(registry.hasIndex("app_user", "status")).isFalse();
+        // create_time 不是任何索引的最左列（在复合索引 idx_status_create_time 中是第二列）
+        assertThat(registry.hasIndex("app_user", "create_time")).isFalse();
     }
 
     @Test
@@ -128,6 +130,49 @@ class SchemaRegistryTest {
     void hasIndex_unknownTable_returnsTrue() {
         // 表不存在时返回 true（跳过检查，避免误报）
         assertThat(registry.hasIndex("nonexistent_table", "any")).isTrue();
+    }
+
+    // --- 复合索引检查 ---
+
+    @Test
+    void hasIndex_compositeIndex_leftmostColumn() {
+        // status 是复合索引 idx_status_create_time(status, create_time) 的最左列
+        assertThat(registry.hasIndex("app_user", "status")).isTrue();
+    }
+
+    @Test
+    void hasIndex_compositeIndex_nonLeftmostColumn() {
+        // create_time 不是最左列，不能单独使用此复合索引
+        assertThat(registry.hasIndex("app_user", "create_time")).isFalse();
+    }
+
+    @Test
+    void hasCompositeIndexCoverage_matchingLeftmost() {
+        // 条件包含 status（最左列）→ 可用
+        assertThat(registry.hasCompositeIndexCoverage("app_user", List.of("status", "user_name")))
+                .isTrue();
+    }
+
+    @Test
+    void hasCompositeIndexCoverage_onlyNonLeftmost() {
+        // 条件只含 create_time（非最左列）→ 不可用
+        assertThat(registry.hasCompositeIndexCoverage("app_user", List.of("create_time")))
+                .isFalse();
+    }
+
+    @Test
+    void hasCompositeIndexCoverage_emptyConditions() {
+        assertThat(registry.hasCompositeIndexCoverage("app_user", List.of()))
+                .isFalse();
+        assertThat(registry.hasCompositeIndexCoverage("app_user", null))
+                .isFalse();
+    }
+
+    @Test
+    void hasCompositeIndexCoverage_unknownTable() {
+        // 表不存在时返回 true（避免误报）
+        assertThat(registry.hasCompositeIndexCoverage("nonexistent", List.of("any")))
+                .isTrue();
     }
 
     // --- 行数 ---
@@ -168,7 +213,7 @@ class SchemaRegistryTest {
     @Test
     void getTable_columnsLoaded() {
         TableMetadata meta = registry.getTable("app_user");
-        assertThat(meta.getColumns()).hasSize(4);
+        assertThat(meta.getColumns()).hasSize(5);
         assertThat(meta.getColumns().get(0).getName()).isEqualTo("user_id");
         assertThat(meta.getColumns().get(0).getType()).isEqualTo("bigint");
         assertThat(meta.getColumns().get(0).isNullable()).isFalse();
@@ -177,7 +222,7 @@ class SchemaRegistryTest {
     @Test
     void getTable_indexesLoaded() {
         TableMetadata meta = registry.getTable("app_user");
-        assertThat(meta.getIndexes()).hasSize(3);
+        assertThat(meta.getIndexes()).hasSize(4);
         assertThat(meta.getIndexes().get(0).getName()).isEqualTo("PRIMARY");
         assertThat(meta.getIndexes().get(0).isUnique()).isTrue();
     }

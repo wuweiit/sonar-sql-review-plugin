@@ -30,6 +30,9 @@ public final class SqlReviewProperties {
     public static final String MAX_JOINS_KEY = "sonar.sql-review.max-joins";
     public static final int MAX_JOINS_DEFAULT = 3;
 
+    public static final String SQL_DUMP_FILE_KEY = "sonar.sql-review.sql-dump-file";
+    public static final String SQL_DUMP_FILE_DEFAULT = "";
+
     public static final String CATEGORY = "SQL Review";
 
     private SqlReviewProperties() {
@@ -81,6 +84,13 @@ public final class SqlReviewProperties {
                         .type(PropertyType.INTEGER)
                         .category(CATEGORY)
                         .subCategory("Thresholds")
+                        .build(),
+                PropertyDefinition.builder(SQL_DUMP_FILE_KEY)
+                        .name("SQL Dump File")
+                        .description("将扫描到的所有 SQL 语句输出到指定文件（留空则仅输出到日志）")
+                        .defaultValue(SQL_DUMP_FILE_DEFAULT)
+                        .category(CATEGORY)
+                        .subCategory("Output")
                         .build()
         );
     }

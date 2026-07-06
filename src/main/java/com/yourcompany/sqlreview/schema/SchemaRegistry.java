@@ -11,7 +11,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
@@ -167,11 +169,55 @@ public class SchemaRegistry {
         return meta;
     }
 
+    /**
+     * 检查指定列是否为某个索引的最左列（最左前缀原则）
+     * <p>
+     * 例如索引 (user_id, status)，只有 user_id 作为最左列才会生效。
+     * 单独查询 status 不算“有索引”。
+     * </p>
+     */
     public boolean hasIndex(String table, String column) {
         TableMetadata meta = getTable(table);
         if (meta == null) return true; // 表不存在则跳过检查
         return meta.getIndexes().stream()
-                .anyMatch(idx -> idx.getColumns().contains(column));
+                .anyMatch(idx -> !idx.getColumns().isEmpty()
+                        && idx.getColumns().get(0).equalsIgnoreCase(column));
+    }
+
+    /**
+     * 检查给定条件列集合是否能覆盖某个索引的最左前缀（复合索引检查）
+     * <p>
+     * 从左到右匹配索引列，如果最左列不在条件中则索引不可用。
+     * </p>
+     * <ul>
+     *   <li>索引 (a, b, c) + 条件 {a, b, d} → 前缀 a,b 匹配 ✓</li>
+     *   <li>索引 (a, b, c) + 条件 {b, c} → 最左列 a 缺失 ✗</li>
+     *   <li>索引 (a) + 条件 {a, b} → 前缀 a 匹配 ✓</li>
+     * </ul>
+     *
+     * @param table            表名
+     * @param conditionColumns WHERE 条件列集合
+     * @return true 表示至少有一个索引的最左前缀被条件列覆盖
+     */
+    public boolean hasCompositeIndexCoverage(String table, List<String> conditionColumns) {
+        if (conditionColumns == null || conditionColumns.isEmpty()) return false;
+        TableMetadata meta = getTable(table);
+        if (meta == null) return true;
+
+        for (var idx : meta.getIndexes()) {
+            List<String> idxCols = idx.getColumns();
+            if (idxCols.isEmpty()) continue;
+
+            // 最左列不在条件中 → 此索引完全不可用，跳过
+            String leftmostCol = idxCols.get(0);
+            if (conditionColumns.stream().noneMatch(c -> c.equalsIgnoreCase(leftmostCol))) {
+                continue;
+            }
+
+            // 最左列匹配 → 索引可用（已覆盖最左前缀）
+            return true;
+        }
+        return false;
     }
 
     public long getRowCount(String table) {

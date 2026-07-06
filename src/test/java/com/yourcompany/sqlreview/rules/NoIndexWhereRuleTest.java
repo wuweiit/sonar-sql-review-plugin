@@ -28,20 +28,22 @@ class NoIndexWhereRuleTest {
 
     @Test
     void shouldRaiseIssue_whenWhereColumnHasNoIndex() {
+        // app_user 150k行，create_time 不是任何索引的最左列
         SqlStatement stmt = SqlStatement.builder()
                 .type("SELECT")
                 .tables(List.of("app_user"))
-                .conditionColumns(List.of("status"))
+                .conditionColumns(List.of("create_time"))
                 .build();
 
         List<Issue> issues = rule.check(stmt, schema);
         assertThat(issues).hasSize(1);
         assertThat(issues.get(0).getRuleId()).isEqualTo("SQL-001");
-        assertThat(issues.get(0).getMessage()).contains("status");
+        assertThat(issues.get(0).getMessage()).contains("create_time");
     }
 
     @Test
     void shouldNotRaiseIssue_whenWhereColumnHasIndex() {
+        // user_name 是 idx_user_name 的最左列
         SqlStatement stmt = SqlStatement.builder()
                 .type("SELECT")
                 .tables(List.of("app_user"))
@@ -52,16 +54,15 @@ class NoIndexWhereRuleTest {
     }
 
     @Test
-    void shouldCheckFallbackSchema_whenTableNotInPrimary() {
+    void shouldNotRaiseIssue_whenSmallTable() {
+        // app_new_feature 只有 100 行，小表不需要索引
         SqlStatement stmt = SqlStatement.builder()
                 .type("SELECT")
                 .tables(List.of("app_new_feature"))
                 .conditionColumns(List.of("status"))
                 .build();
 
-        List<Issue> issues = rule.check(stmt, schema);
-        assertThat(issues).hasSize(1);
-        assertThat(issues.get(0).getMessage()).contains("dev");
+        assertThat(rule.check(stmt, schema)).isEmpty();
     }
 
     @Test
@@ -87,7 +88,8 @@ class NoIndexWhereRuleTest {
     }
 
     @Test
-    void shouldRaiseMultipleIssues_whenMultipleColumnsNoIndex() {
+    void shouldRaiseOneIssue_whenMultipleColumnsNoIndex() {
+        // app_article 200k行，title和category_id都无索引 → 只报一条
         SqlStatement stmt = SqlStatement.builder()
                 .type("SELECT")
                 .tables(List.of("app_article"))
@@ -95,6 +97,33 @@ class NoIndexWhereRuleTest {
                 .build();
 
         List<Issue> issues = rule.check(stmt, schema);
-        assertThat(issues).hasSize(2);
+        assertThat(issues).hasSize(1);
+        assertThat(issues.get(0).getMessage()).contains("title").contains("category_id");
+    }
+
+    @Test
+    void shouldNotRaiseIssue_whenCompositeIndexCovers() {
+        // app_user idx_status_create_time(status, create_time) + 条件包含 status（最左列）→ 可用
+        SqlStatement stmt = SqlStatement.builder()
+                .type("SELECT")
+                .tables(List.of("app_user"))
+                .conditionColumns(List.of("status", "create_time"))
+                .build();
+
+        assertThat(rule.check(stmt, schema)).isEmpty();
+    }
+
+    @Test
+    void shouldRaiseIssue_whenOnlyNonLeftmostColumn() {
+        // create_time 不是最左列，即使和 status 在同一个复合索引中
+        SqlStatement stmt = SqlStatement.builder()
+                .type("SELECT")
+                .tables(List.of("app_user"))
+                .conditionColumns(List.of("create_time"))
+                .build();
+
+        List<Issue> issues = rule.check(stmt, schema);
+        assertThat(issues).hasSize(1);
+        assertThat(issues.get(0).getMessage()).contains("无法命中任何索引");
     }
 }

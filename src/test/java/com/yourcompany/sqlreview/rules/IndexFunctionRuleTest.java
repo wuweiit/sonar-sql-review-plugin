@@ -31,7 +31,7 @@ class IndexFunctionRuleTest {
     @Test
     void shouldNotRaiseIssue_whenFunctionOnNonIndexedColumn() {
         SqlStatement stmt = SqlStatement.builder().type("SELECT")
-                .sql("SELECT * FROM app_user WHERE YEAR(status) = 2023")
+                .sql("SELECT * FROM app_user WHERE YEAR(create_time) = 2023")
                 .tables(List.of("app_user")).build();
         assertThat(rule.check(stmt, schema)).isEmpty();
     }

@@ -51,15 +51,15 @@ class FullTableScanRuleTest {
     }
 
     @Test
-    void shouldRaiseIssue_whenAllConditionColumnsHaveNoIndex() {
+    void shouldNotRaiseIssue_whenConditionColumnsExist() {
+        // SQL-002 只检查“无WHERE”场景，有WHERE但不检查
         SqlStatement stmt = SqlStatement.builder()
                 .type("SELECT")
                 .tables(List.of("app_user"))
-                .conditionColumns(List.of("status"))
+                .conditionColumns(List.of("create_time"))
                 .build();
 
-        List<Issue> issues = rule.check(stmt, schema);
-        assertThat(issues).hasSize(1);
+        assertThat(rule.check(stmt, schema)).isEmpty();
     }
 
     @Test

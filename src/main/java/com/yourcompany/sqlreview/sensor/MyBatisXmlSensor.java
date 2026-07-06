@@ -13,6 +13,8 @@ import com.yourcompany.sqlreview.rules.SelectStarXmlRule;
 import com.yourcompany.sqlreview.rules.SqlRulesDefinition;
 import com.yourcompany.sqlreview.rules.SqlXmlRule;
 import com.yourcompany.sqlreview.schema.SchemaRegistry;
+import com.yourcompany.sqlreview.settings.SqlReviewProperties;
+import com.yourcompany.sqlreview.tool.SqlDumpWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.sonar.api.batch.fs.FileSystem;
@@ -37,14 +39,10 @@ public class MyBatisXmlSensor implements Sensor {
 
     private final List<SqlXmlRule> rules = new ArrayList<>();
 
+    private final SqlDumpWriter sqlDumpWriter = new SqlDumpWriter();
+
     public MyBatisXmlSensor() {
-        rules.add(new SelectStarXmlRule());
-        rules.add(new NoIndexWhereRule());
-        rules.add(new FullTableScanRule());
-        rules.add(new LikeLeadingWildcardRule());
-        rules.add(new NoLimitLargeTableRule());
-        rules.add(new DynamicConcatRule());
-        rules.add(new IndexFunctionRule());
+        // 默认构造，execute() 中重新初始化规则
     }
 
     @Override
@@ -62,6 +60,25 @@ public class MyBatisXmlSensor implements Sensor {
         schema.load(context.config());
         LOG.info("Schema loaded: {} primary tables, {} fallback tables",
                 schema.getPrimaryTableCount(), schema.getFallbackTableCount());
+
+        // 读取配置的阈值
+        long largeTableThreshold = context.config()
+                .getLong(SqlReviewProperties.LARGE_TABLE_THRESHOLD_KEY)
+                .orElse((long) SqlReviewProperties.LARGE_TABLE_THRESHOLD_DEFAULT);
+        long noLimitThreshold = context.config()
+                .getLong(SqlReviewProperties.NO_LIMIT_THRESHOLD_KEY)
+                .orElse((long) SqlReviewProperties.NO_LIMIT_THRESHOLD_DEFAULT);
+        LOG.info("Thresholds: large-table={}, no-limit={}", largeTableThreshold, noLimitThreshold);
+
+        // 初始化规则（传入配置的阈值）
+        rules.clear();
+        rules.add(new SelectStarXmlRule());
+        rules.add(new NoIndexWhereRule(largeTableThreshold));
+        rules.add(new FullTableScanRule(largeTableThreshold));
+        rules.add(new LikeLeadingWildcardRule());
+        rules.add(new NoLimitLargeTableRule(noLimitThreshold));
+        rules.add(new DynamicConcatRule());
+        rules.add(new IndexFunctionRule());
 
         logRuleActivation(context);
 
@@ -81,6 +98,8 @@ public class MyBatisXmlSensor implements Sensor {
                     xmlFile.language(), xmlFile.type(), xmlFile.status());
 
             for (SqlStatement statement : statements) {
+                // 输出 SQL 到日志和收集器
+                sqlDumpWriter.addXmlSql(xmlFile.relativePath(), statement);
                 for (SqlXmlRule rule : rules) {
                     List<Issue> issues = rule.check(statement, schema);
                     for (Issue issue : issues) {
@@ -96,8 +115,12 @@ public class MyBatisXmlSensor implements Sensor {
             }
         }
 
-        LOG.info("MyBatis XML SQL Review complete: {} files analyzed, {} issues reported",
-                fileCount, issueCount);
+        LOG.info("MyBatis XML SQL Review complete: {} files analyzed, {} issues reported, {} SQL statements collected",
+                fileCount, issueCount, sqlDumpWriter.size());
+
+        // 输出 SQL 到文件
+        String dumpFile = context.config().get(SqlReviewProperties.SQL_DUMP_FILE_KEY).orElse(null);
+        sqlDumpWriter.dumpToFile(dumpFile);
     }
 
     private void logRuleActivation(SensorContext context) {
