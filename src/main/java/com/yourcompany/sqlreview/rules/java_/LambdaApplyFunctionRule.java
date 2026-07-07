@@ -37,7 +37,8 @@ public class LambdaApplyFunctionRule {
         }
 
         String tableName = schema.resolveEntityToTable(chain.getEntityClass());
-        if (tableName == null || schema.getTable(tableName) == null) {
+        String database = chain.getResolvedDatabase();
+        if (tableName == null || schema.getTable(tableName, database) == null) {
             return issues;
         }
 
@@ -46,7 +47,7 @@ public class LambdaApplyFunctionRule {
             Matcher matcher = FUNC_ON_COL.matcher(sqlFragment);
             while (matcher.find()) {
                 String col = matcher.group(1).toLowerCase();
-                if (schema.hasIndex(tableName, col)) {
+                if (schema.hasIndex(tableName, col, database)) {
                     issues.add(new JavaIssue(
                             "SQL-306",
                             applyInfo.getLine(),

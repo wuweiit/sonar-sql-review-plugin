@@ -33,6 +33,9 @@ public final class SqlReviewProperties {
     public static final String SQL_DUMP_FILE_KEY = "sonar.sql-review.sql-dump-file";
     public static final String SQL_DUMP_FILE_DEFAULT = "";
 
+    public static final String SCHEMA_SYNC_URL_KEY = "sonar.sql-review.schema-sync-url";
+    public static final String SCHEMA_SYNC_URL_DEFAULT = "";
+
     public static final String CATEGORY = "SQL Review";
 
     private SqlReviewProperties() {
@@ -91,6 +94,13 @@ public final class SqlReviewProperties {
                         .defaultValue(SQL_DUMP_FILE_DEFAULT)
                         .category(CATEGORY)
                         .subCategory("Output")
+                        .build(),
+                PropertyDefinition.builder(SCHEMA_SYNC_URL_KEY)
+                        .name("Schema Sync URL")
+                        .description("远程 Schema HTTP 服务器地址（如 http://dev.jinliwangluo.com/sonar-schema/），留空则不同步")
+                        .defaultValue(SCHEMA_SYNC_URL_DEFAULT)
+                        .category(CATEGORY)
+                        .subCategory("Schema Sync")
                         .build()
         );
     }

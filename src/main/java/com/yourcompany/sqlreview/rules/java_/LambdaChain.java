@@ -40,6 +40,9 @@ public class LambdaChain {
     /** 是否有 selectAll() */
     private boolean hasSelectAll;
 
+    /** 解析出的数据库名（由 Sensor 设置，来自 @DS 注解或 project_database_map.json） */
+    private String resolvedDatabase;
+
     public String getEntityClass() { return entityClass; }
     public void setEntityClass(String entityClass) { this.entityClass = entityClass; }
 
@@ -65,6 +68,9 @@ public class LambdaChain {
 
     public boolean isHasSelectAll() { return hasSelectAll; }
     public void setHasSelectAll(boolean hasSelectAll) { this.hasSelectAll = hasSelectAll; }
+
+    public String getResolvedDatabase() { return resolvedDatabase; }
+    public void setResolvedDatabase(String resolvedDatabase) { this.resolvedDatabase = resolvedDatabase; }
 
     /**
      * 单个条件方法调用信息

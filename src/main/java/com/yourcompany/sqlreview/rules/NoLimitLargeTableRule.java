@@ -29,7 +29,7 @@ public class NoLimitLargeTableRule implements SqlXmlRule {
         if (stmt.isHasLimit()) return issues;
 
         for (String table : stmt.getTables()) {
-            long rowCount = schema.getRowCount(table);
+            long rowCount = schema.getRowCount(table, stmt.getDatabase());
             if (rowCount > noLimitThreshold) {
                 issues.add(new Issue("SQL-101", "MAJOR",
                         String.format("大表 %s（约 %d 行）查询无 LIMIT", table, rowCount),

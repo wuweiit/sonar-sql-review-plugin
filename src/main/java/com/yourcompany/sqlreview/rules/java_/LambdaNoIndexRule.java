@@ -39,6 +39,8 @@ public class LambdaNoIndexRule {
             return issues;
         }
 
+        String database = chain != null ? chain.getResolvedDatabase() : null;
+
         // 按表分组收集条件（跳过不需要索引检查的方法）
         Map<String, List<LambdaChain.ConditionInfo>> tableConditions = new HashMap<>();
         for (LambdaChain.ConditionInfo cond : chain.getConditions()) {
@@ -47,10 +49,10 @@ public class LambdaNoIndexRule {
                 continue;
             }
             String tableName = resolveCondTable(cond, chain, schema);
-            if (tableName == null || schema.getTable(tableName) == null) continue;
+            if (tableName == null || schema.getTable(tableName, database) == null) continue;
 
             // 小表跳过
-            if (schema.getRowCount(tableName) <= smallTableThreshold) continue;
+            if (schema.getRowCount(tableName, database) <= smallTableThreshold) continue;
 
             tableConditions.computeIfAbsent(tableName, k -> new ArrayList<>()).add(cond);
         }
@@ -70,13 +72,13 @@ public class LambdaNoIndexRule {
             }
 
             // 复合索引前缀覆盖检查
-            if (schema.hasCompositeIndexCoverage(tableName, colNames)) {
+            if (schema.hasCompositeIndexCoverage(tableName, colNames, database)) {
                 continue; // 索引可用，不报告
             }
 
             // 无法命中索引 → 报告每个无索引列（精确到代码行）
             for (LambdaChain.ConditionInfo cond : conds) {
-                if (!schema.hasIndex(tableName, cond.getColumnName())) {
+                if (!schema.hasIndex(tableName, cond.getColumnName(), database)) {
                     issues.add(new JavaIssue(
                             "SQL-303",
                             cond.getLine(),

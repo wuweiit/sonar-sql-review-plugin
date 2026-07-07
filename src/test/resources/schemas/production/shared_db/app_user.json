@@ -1,0 +1,14 @@
+{
+  "table": "app_user",
+  "database": "shared_db",
+  "environment": "production",
+  "rowCount": 5000,
+  "columns": [
+    {"name": "id", "type": "bigint", "nullable": false},
+    {"name": "name", "type": "varchar(64)", "nullable": false}
+  ],
+  "indexes": [
+    {"name": "PRIMARY", "columns": ["id"], "unique": true, "type": "BTREE"},
+    {"name": "idx_name", "columns": ["name"], "unique": false, "type": "BTREE"}
+  ]
+}

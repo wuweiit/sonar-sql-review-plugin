@@ -45,7 +45,8 @@ public class LambdaNoLimitRule {
             return issues;
         }
 
-        long rowCount = schema.getRowCount(tableName);
+        String database = chain.getResolvedDatabase();
+        long rowCount = schema.getRowCount(tableName, database);
         if (rowCount < largeTableThreshold) {
             return issues; // 小表不检查
         }

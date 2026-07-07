@@ -47,4 +47,21 @@ class NoLimitLargeTableRuleTest {
                 .tables(List.of("app_user")).hasLimit(false).build();
         assertThat(rule.check(stmt, schema)).isEmpty();
     }
+
+    @Test
+    void check_withDatabase_usesSpecifiedDbMetadata() {
+        // shared_db.app_user 只有 5000 行，不触发大表规则
+        SqlStatement stmt = SqlStatement.builder().type("SELECT")
+                .tables(List.of("app_user")).hasLimit(false)
+                .database("shared_db").build();
+        assertThat(rule.check(stmt, schema)).isEmpty();
+    }
+
+    @Test
+    void check_withNullDatabase_stillWorks() {
+        SqlStatement stmt = SqlStatement.builder().type("SELECT")
+                .tables(List.of("app_user")).hasLimit(false)
+                .database(null).build();
+        assertThat(rule.check(stmt, schema)).hasSize(1);
+    }
 }

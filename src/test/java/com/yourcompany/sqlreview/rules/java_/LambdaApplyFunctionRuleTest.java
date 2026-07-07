@@ -158,4 +158,34 @@ class LambdaApplyFunctionRuleTest {
         List<JavaIssue> issues = rule.check(chains.get(0), schema);
         assertThat(issues).hasSize(1);
     }
+
+    @Test
+    void check_withDatabase_usesSpecifiedDbMetadata() {
+        // shared_db.app_user 的 user_id 列有 PRIMARY 索引
+        String[] lines = {
+            "Wrappers.<AppUserEntity>lambdaQuery()",
+            "    .apply(\"YEAR(id) = {0}\", 2024)",
+            "    .list();"
+        };
+
+        List<LambdaChain> chains = parser.parse(lines);
+        chains.get(0).setResolvedDatabase("shared_db");
+        // shared_db.app_user 的 id 有 PRIMARY 索引，函数操作会报告
+        List<JavaIssue> issues = rule.check(chains.get(0), schema);
+        assertThat(issues).hasSize(1);
+    }
+
+    @Test
+    void check_withNullDatabase_stillWorks() {
+        String[] lines = {
+            "Wrappers.<AppUserEntity>lambdaQuery()",
+            "    .apply(\"YEAR(user_id) = {0}\", 2024)",
+            "    .list();"
+        };
+
+        List<LambdaChain> chains = parser.parse(lines);
+        chains.get(0).setResolvedDatabase(null);
+        List<JavaIssue> issues = rule.check(chains.get(0), schema);
+        assertThat(issues).hasSize(1);
+    }
 }

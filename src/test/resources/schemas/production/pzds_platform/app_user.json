@@ -1,0 +1,19 @@
+{
+  "table": "app_user",
+  "database": "pzds_platform",
+  "environment": "production",
+  "rowCount": 150000,
+  "columns": [
+    {"name": "user_id", "type": "bigint", "nullable": false},
+    {"name": "user_name", "type": "varchar(64)", "nullable": false},
+    {"name": "email", "type": "varchar(128)", "nullable": true},
+    {"name": "status", "type": "tinyint", "nullable": false},
+    {"name": "create_time", "type": "datetime", "nullable": false}
+  ],
+  "indexes": [
+    {"name": "PRIMARY", "columns": ["user_id"], "unique": true, "type": "BTREE"},
+    {"name": "idx_user_name", "columns": ["user_name"], "unique": false, "type": "BTREE"},
+    {"name": "uk_email", "columns": ["email"], "unique": true, "type": "BTREE"},
+    {"name": "idx_status_create_time", "columns": ["status", "create_time"], "unique": false, "type": "BTREE"}
+  ]
+}

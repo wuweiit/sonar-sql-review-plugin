@@ -24,6 +24,9 @@ public class SqlStatement {
     private int lineNumber;
     private List<SqlStatement> variants = new ArrayList<>();
 
+    /** 解析出的数据库名（由 Sensor 设置，来自 @DS 注解或 project_database_map.json） */
+    private String database;
+
     public SqlStatement() {
     }
 
@@ -131,6 +134,14 @@ public class SqlStatement {
         this.variants = variants;
     }
 
+    public String getDatabase() {
+        return database;
+    }
+
+    public void setDatabase(String database) {
+        this.database = database;
+    }
+
     /**
      * Builder 模式
      */
@@ -152,6 +163,7 @@ public class SqlStatement {
         public Builder rawXml(String v) { stmt.setRawXml(v); return this; }
         public Builder filePath(String v) { stmt.setFilePath(v); return this; }
         public Builder lineNumber(int v) { stmt.setLineNumber(v); return this; }
+        public Builder database(String v) { stmt.setDatabase(v); return this; }
 
         public SqlStatement build() {
             return stmt;

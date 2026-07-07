@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -42,7 +43,8 @@ class SchemaRegistryTest {
 
     @Test
     void load_shouldCountTables() {
-        assertThat(registry.getPrimaryTableCount()).isEqualTo(4); // app_user + app_article + app_article_category + order_info
+        // app_production(3) + order_production(1) + shared_db(1) + pzds_platform(1) = 6
+        assertThat(registry.getPrimaryTableCount()).isEqualTo(6);
         assertThat(registry.getFallbackTableCount()).isEqualTo(1); // app_new_feature
     }
 
@@ -225,5 +227,157 @@ class SchemaRegistryTest {
         assertThat(meta.getIndexes()).hasSize(4);
         assertThat(meta.getIndexes().get(0).getName()).isEqualTo("PRIMARY");
         assertThat(meta.getIndexes().get(0).isUnique()).isTrue();
+    }
+
+    // --- 数据库维度查找 ---
+
+    @Test
+    void getTable_withDatabase_findsInSpecifiedDb() {
+        TableMetadata meta = registry.getTable("app_user", "app_production");
+        assertThat(meta).isNotNull();
+        assertThat(meta.getDatabase()).isEqualTo("app_production");
+        assertThat(meta.getRowCount()).isEqualTo(150000L);
+    }
+
+    @Test
+    void getTable_withDatabase_sameTableDifferentDb() {
+        // app_user 在 app_production 和 shared_db 中都存在
+        TableMetadata prod = registry.getTable("app_user", "app_production");
+        TableMetadata shared = registry.getTable("app_user", "shared_db");
+        assertThat(prod).isNotNull();
+        assertThat(shared).isNotNull();
+        assertThat(prod.getDatabase()).isEqualTo("app_production");
+        assertThat(shared.getDatabase()).isEqualTo("shared_db");
+        assertThat(prod.getRowCount()).isEqualTo(150000L);
+        assertThat(shared.getRowCount()).isEqualTo(5000L);
+    }
+
+    @Test
+    void getTable_withDatabase_notInSpecifiedDb_fallsBack() {
+        // order_info 不在 shared_db 中，降级遍历其他库
+        TableMetadata meta = registry.getTable("order_info", "shared_db");
+        assertThat(meta).isNotNull();
+        assertThat(meta.getDatabase()).isEqualTo("order_production");
+    }
+
+    @Test
+    void getTable_withDatabase_tableNotFoundAnywhere() {
+        assertThat(registry.getTable("nonexistent_table", "any_db")).isNull();
+    }
+
+    @Test
+    void getTable_withNullDatabase_primaryDbSet_usesPrimary() {
+        registry.setPrimaryDatabase("shared_db");
+        // 不指定 database，优先使用 primaryDatabase
+        TableMetadata meta = registry.getTable("app_user", null);
+        assertThat(meta).isNotNull();
+        assertThat(meta.getDatabase()).isEqualTo("shared_db");
+    }
+
+    @Test
+    void getTable_backwardCompat_noDatabase() {
+        // 调用旧的 getTable(name) 应该仍然工作
+        TableMetadata meta = registry.getTable("app_user");
+        assertThat(meta).isNotNull();
+        assertThat(meta.getTable()).isEqualTo("app_user");
+    }
+
+    @Test
+    void getDatabases_returnsAllLoaded() {
+        Set<String> dbs = registry.getDatabases();
+        assertThat(dbs).contains("app_production", "order_production", "shared_db", "pzds_platform");
+    }
+
+    @Test
+    void getTableDatabase_returnsFirstMatch() {
+        // app_user 在 app_production 和 shared_db 都存在，返回第一个匹配的库
+        String db = registry.getTableDatabase("app_user");
+        assertThat(db).isNotNull();
+        assertThat(db).isIn("app_production", "shared_db");
+    }
+
+    @Test
+    void getTableDatabase_unknownTable_returnsNull() {
+        assertThat(registry.getTableDatabase("nonexistent_table")).isNull();
+    }
+
+    // --- 主库设置 ---
+
+    @Test
+    void setPrimaryDatabase_affectsGetTable() {
+        registry.setPrimaryDatabase("shared_db");
+        assertThat(registry.getPrimaryDatabase()).isEqualTo("shared_db");
+        // 不指定 database 时，优先使用 primaryDatabase
+        TableMetadata meta = registry.getTable("app_user");
+        assertThat(meta.getDatabase()).isEqualTo("shared_db");
+    }
+
+    @Test
+    void getTable_primaryDbSet_nullDatabase_usesPrimary() {
+        registry.setPrimaryDatabase("app_production");
+        TableMetadata meta = registry.getTable("order_info", null);
+        assertThat(meta).isNotNull();
+        assertThat(meta.getDatabase()).isEqualTo("order_production");
+    }
+
+    // --- project_database_map.json 映射 ---
+
+    @Test
+    void resolveProjectDatabase_existingMapping() {
+        assertThat(registry.resolveProjectDatabase("platform-service")).isEqualTo("pzds_platform");
+        assertThat(registry.resolveProjectDatabase("user-service")).isEqualTo("pzds_user");
+    }
+
+    @Test
+    void resolveProjectDatabase_unknownProject_returnsNull() {
+        assertThat(registry.resolveProjectDatabase("unknown-project")).isNull();
+    }
+
+    @Test
+    void resolveProjectDatabase_nullInput_returnsNull() {
+        assertThat(registry.resolveProjectDatabase(null)).isNull();
+    }
+
+    @Test
+    void setPrimaryDatabaseByProject_found() {
+        boolean result = registry.setPrimaryDatabaseByProject("platform-service");
+        assertThat(result).isTrue();
+        assertThat(registry.getPrimaryDatabase()).isEqualTo("pzds_platform");
+    }
+
+    @Test
+    void setPrimaryDatabaseByProject_notFound() {
+        registry.setPrimaryDatabase("existing_db");
+        boolean result = registry.setPrimaryDatabaseByProject("nonexistent-project");
+        assertThat(result).isFalse();
+        // primaryDatabase 应保持不变
+        assertThat(registry.getPrimaryDatabase()).isEqualTo("existing_db");
+    }
+
+    // --- 数据库维度的索引和行数检查 ---
+
+    @Test
+    void hasIndex_withDatabase_checksCorrectDb() {
+        // shared_db 的 app_user 有 idx_name 索引
+        assertThat(registry.hasIndex("app_user", "name", "shared_db")).isTrue();
+        // app_production 的 app_user 没有 name 列索引
+        assertThat(registry.hasIndex("app_user", "name", "app_production")).isFalse();
+    }
+
+    @Test
+    void getRowCount_withDatabase_checksCorrectDb() {
+        assertThat(registry.getRowCount("app_user", "app_production")).isEqualTo(150000L);
+        assertThat(registry.getRowCount("app_user", "shared_db")).isEqualTo(5000L);
+    }
+
+    @Test
+    void hasIndex_withDatabase_unknownTable_returnsTrue() {
+        assertThat(registry.hasIndex("nonexistent", "col", "any_db")).isTrue();
+    }
+
+    @Test
+    void hasCompositeIndexCoverage_withDatabase() {
+        assertThat(registry.hasCompositeIndexCoverage("app_user",
+                List.of("status"), "app_production")).isTrue();
     }
 }

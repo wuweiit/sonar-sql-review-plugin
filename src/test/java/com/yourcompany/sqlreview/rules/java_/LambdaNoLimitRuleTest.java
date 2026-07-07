@@ -144,4 +144,36 @@ class LambdaNoLimitRuleTest {
         // app_user 150,000 < 1,000,000 阈值，不报告
         assertThat(issues).isEmpty();
     }
+
+    @Test
+    void check_withDatabase_usesSpecifiedDbMetadata() {
+        // shared_db.app_user 只有 5000 行，不触发大表规则
+        String[] lines = {
+            "Wrappers.<AppUserEntity>lambdaQuery()",
+            "    .eq(AppUserEntity::getStatus, 1)",
+            "    .list();"
+        };
+
+        List<LambdaChain> chains = parser.parse(lines);
+        chains.get(0).setResolvedDatabase("shared_db");
+        List<JavaIssue> issues = rule.check(chains.get(0), schema);
+        // shared_db.app_user 5000 行 < 10000 阈值，不报告
+        assertThat(issues).isEmpty();
+    }
+
+    @Test
+    void check_withNullDatabase_stillWorks() {
+        // null database 时使用兼容模式（遍历所有库）
+        String[] lines = {
+            "Wrappers.<AppUserEntity>lambdaQuery()",
+            "    .eq(AppUserEntity::getStatus, 1)",
+            "    .list();"
+        };
+
+        List<LambdaChain> chains = parser.parse(lines);
+        chains.get(0).setResolvedDatabase(null);
+        List<JavaIssue> issues = rule.check(chains.get(0), schema);
+        // app_production.app_user 150000 行，触发规则
+        assertThat(issues).hasSize(1);
+    }
 }

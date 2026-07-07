@@ -32,7 +32,7 @@ public class FullTableScanRule implements SqlXmlRule {
         if (!"SELECT".equals(stmt.getType())) return issues;
 
         for (String table : stmt.getTables()) {
-            long rowCount = schema.getRowCount(table);
+            long rowCount = schema.getRowCount(table, stmt.getDatabase());
             if (rowCount <= largeTableThreshold) continue;
 
             if (stmt.getConditionColumns().isEmpty()) {

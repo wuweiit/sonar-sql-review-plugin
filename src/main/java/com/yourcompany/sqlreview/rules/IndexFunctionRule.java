@@ -30,7 +30,7 @@ public class IndexFunctionRule implements SqlXmlRule {
         while (matcher.find()) {
             String col = matcher.group(1).toLowerCase();
             for (String table : stmt.getTables()) {
-                if (schema.hasIndex(table, col)) {
+                if (schema.hasIndex(table, col, stmt.getDatabase())) {
                     issues.add(new Issue("SQL-004", "CRITICAL",
                             String.format("索引列 %s.%s 使用函数导致索引失效", table, col),
                             "将函数移到等号右侧，或使用计算列"));

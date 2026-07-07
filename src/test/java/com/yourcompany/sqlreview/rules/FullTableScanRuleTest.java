@@ -83,4 +83,30 @@ class FullTableScanRuleTest {
 
         assertThat(rule.check(stmt, schema)).isEmpty();
     }
+
+    @Test
+    void check_withDatabase_usesSpecifiedDbMetadata() {
+        // shared_db.app_user 只有 5000 行，不触发大表全表扫描规则
+        SqlStatement stmt = SqlStatement.builder()
+                .type("SELECT")
+                .tables(List.of("app_user"))
+                .conditionColumns(List.of())
+                .database("shared_db")
+                .build();
+
+        assertThat(rule.check(stmt, schema)).isEmpty();
+    }
+
+    @Test
+    void check_withNullDatabase_stillWorks() {
+        // null database 时使用兼容模式（遍历所有库）
+        SqlStatement stmt = SqlStatement.builder()
+                .type("SELECT")
+                .tables(List.of("app_user"))
+                .conditionColumns(List.of())
+                .database(null)
+                .build();
+
+        assertThat(rule.check(stmt, schema)).hasSize(1);
+    }
 }

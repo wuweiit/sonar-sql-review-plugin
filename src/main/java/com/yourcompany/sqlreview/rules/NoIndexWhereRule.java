@@ -33,13 +33,14 @@ public class NoIndexWhereRule implements SqlXmlRule {
         List<String> condCols = stmt.getConditionColumns();
         if (condCols.isEmpty()) return issues;
 
+        String database = stmt.getDatabase();
         for (String table : stmt.getTables()) {
             // 小表跳过：全表扫描代价可忽略
-            long rowCount = schema.getRowCount(table);
+            long rowCount = schema.getRowCount(table, database);
             if (rowCount <= smallTableThreshold) continue;
 
             // 复合索引前缀覆盖检查：整体分析条件列集合
-            boolean indexCovered = schema.hasCompositeIndexCoverage(table, condCols);
+            boolean indexCovered = schema.hasCompositeIndexCoverage(table, condCols, database);
             if (!indexCovered) {
                 String env = schema.getSourceEnv(table);
                 String colList = condCols.stream().collect(Collectors.joining(", "));

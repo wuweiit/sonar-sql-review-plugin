@@ -158,4 +158,35 @@ class LambdaNoIndexRuleTest {
         List<JavaIssue> issues = rule.check(chains.get(0), schema);
         assertThat(issues).hasSize(1);
     }
+
+    @Test
+    void check_withDatabase_usesSpecifiedDbMetadata() {
+        // shared_db.app_user 只有 id 和 name 列，idx_name 索引在 name 上
+        String[] lines = {
+            "Wrappers.<AppUserEntity>lambdaQuery()",
+            "    .eq(AppUserEntity::getUserName, \"test\")",
+            "    .list();"
+        };
+
+        List<LambdaChain> chains = parser.parse(lines);
+        chains.get(0).setResolvedDatabase("shared_db");
+        // shared_db.app_user 的 idx_name 索引包含 name 列，不报告
+        List<JavaIssue> issues = rule.check(chains.get(0), schema);
+        assertThat(issues).isEmpty();
+    }
+
+    @Test
+    void check_withNullDatabase_stillWorks() {
+        // null database 时使用兼容模式（遍历所有库）
+        String[] lines = {
+            "Wrappers.<AppUserEntity>lambdaQuery()",
+            "    .eq(AppUserEntity::getCreateTime, \"2024-01-01\")",
+            "    .list();"
+        };
+
+        List<LambdaChain> chains = parser.parse(lines);
+        chains.get(0).setResolvedDatabase(null);
+        List<JavaIssue> issues = rule.check(chains.get(0), schema);
+        assertThat(issues).hasSize(1);
+    }
 }

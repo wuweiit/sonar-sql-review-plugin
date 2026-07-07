@@ -126,4 +126,31 @@ class NoIndexWhereRuleTest {
         assertThat(issues).hasSize(1);
         assertThat(issues.get(0).getMessage()).contains("无法命中任何索引");
     }
+
+    @Test
+    void check_withDatabase_usesSpecifiedDbMetadata() {
+        // shared_db.app_user 的 name 列有 idx_name 索引
+        SqlStatement stmt = SqlStatement.builder()
+                .type("SELECT")
+                .tables(List.of("app_user"))
+                .conditionColumns(List.of("name"))
+                .database("shared_db")
+                .build();
+
+        // shared_db 中 name 有索引，不报告
+        assertThat(rule.check(stmt, schema)).isEmpty();
+    }
+
+    @Test
+    void check_withNullDatabase_stillWorks() {
+        // null database 时使用兼容模式
+        SqlStatement stmt = SqlStatement.builder()
+                .type("SELECT")
+                .tables(List.of("app_user"))
+                .conditionColumns(List.of("create_time"))
+                .database(null)
+                .build();
+
+        assertThat(rule.check(stmt, schema)).hasSize(1);
+    }
 }

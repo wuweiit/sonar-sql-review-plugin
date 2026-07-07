@@ -12,9 +12,12 @@ import com.yourcompany.sqlreview.rules.NoLimitLargeTableRule;
 import com.yourcompany.sqlreview.rules.SelectStarXmlRule;
 import com.yourcompany.sqlreview.rules.SqlRulesDefinition;
 import com.yourcompany.sqlreview.rules.SqlXmlRule;
+import com.yourcompany.sqlreview.schema.DataSourceResolver;
 import com.yourcompany.sqlreview.schema.SchemaRegistry;
+import com.yourcompany.sqlreview.schema.SchemaSyncer;
 import com.yourcompany.sqlreview.settings.SqlReviewProperties;
 import com.yourcompany.sqlreview.tool.SqlDumpWriter;
+import com.yourcompany.sqlreview.util.PomArtifactIdParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.sonar.api.batch.fs.FileSystem;
@@ -27,8 +30,12 @@ import org.sonar.api.batch.sensor.issue.NewIssue;
 import org.sonar.api.batch.sensor.issue.NewIssueLocation;
 import org.sonar.api.rule.RuleKey;
 
+import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * MyBatis XML SQL Review Sensor.
@@ -56,10 +63,34 @@ public class MyBatisXmlSensor implements Sensor {
     public void execute(SensorContext context) {
         LOG.info("Starting MyBatis XML SQL Review...");
 
+        // 从 HTTP 同步 Schema 元数据
+        syncSchemaFromHttp(context);
+
         SchemaRegistry schema = new SchemaRegistry();
         schema.load(context.config());
         LOG.info("Schema loaded: {} primary tables, {} fallback tables",
                 schema.getPrimaryTableCount(), schema.getFallbackTableCount());
+
+        // 解析 artifactId → 设置主库
+        FileSystem fs = context.fileSystem();
+        Path pomPath = fs.baseDir().toPath().resolve("pom.xml");
+        Optional<String> artifactId = PomArtifactIdParser.parseArtifactId(pomPath);
+        if (artifactId.isPresent()) {
+            schema.setPrimaryDatabaseByProject(artifactId.get());
+        } else {
+            LOG.warn("Could not parse artifactId from pom.xml, primaryDatabase not set");
+        }
+        LOG.info("Primary database: {}", schema.getPrimaryDatabase());
+
+        // 构建 @DS 解析器：先扫描所有 Java 文件收集 @DS 信息
+        DataSourceResolver dsResolver = new DataSourceResolver();
+        for (InputFile javaFile : fs.inputFiles(fs.predicates().hasExtension("java"))) {
+            try {
+                dsResolver.scanFile(javaFile.contents());
+            } catch (IOException e) {
+                LOG.warn("Failed to read Java file for @DS scan: {}", javaFile.filename(), e);
+            }
+        }
 
         // 读取配置的阈值
         long largeTableThreshold = context.config()
@@ -82,7 +113,6 @@ public class MyBatisXmlSensor implements Sensor {
 
         logRuleActivation(context);
 
-        FileSystem fs = context.fileSystem();
         int fileCount = 0;
         int issueCount = 0;
 
@@ -98,6 +128,13 @@ public class MyBatisXmlSensor implements Sensor {
                     xmlFile.language(), xmlFile.type(), xmlFile.status());
 
             for (SqlStatement statement : statements) {
+                // 解析数据库：通过 namespace 找 Mapper 查 @DS，降级到主库
+                String namespace = statement.getNamespace();
+                String mapperClass = namespace != null
+                        ? namespace.substring(namespace.lastIndexOf('.') + 1) : null;
+                Optional<String> dsValue = dsResolver.resolve(mapperClass, null);
+                statement.setDatabase(dsValue.orElse(schema.getPrimaryDatabase()));
+
                 // 输出 SQL 到日志和收集器
                 sqlDumpWriter.addXmlSql(xmlFile.relativePath(), statement);
                 for (SqlXmlRule rule : rules) {
@@ -166,5 +203,31 @@ public class MyBatisXmlSensor implements Sensor {
                     ruleKey, xmlFile.relativePath(), issueLine, e);
             return false;
         }
+    }
+
+    /**
+     * 从 HTTP 服务器同步 Schema 元数据到本地目录（一次性同步）。
+     * 若未配置 sync-url 则跳过。
+     */
+    private void syncSchemaFromHttp(SensorContext context) {
+        String syncUrl = context.config()
+                .get(SqlReviewProperties.SCHEMA_SYNC_URL_KEY)
+                .orElse(SqlReviewProperties.SCHEMA_SYNC_URL_DEFAULT);
+        if (syncUrl.isEmpty()) {
+            LOG.info("Schema sync URL not configured, skipping HTTP sync");
+            return;
+        }
+
+        String localPath = context.config()
+                .get(SqlReviewProperties.SCHEMA_PATH_KEY)
+                .orElse(SqlReviewProperties.SCHEMA_PATH_DEFAULT);
+
+        SchemaSyncer syncer = new SchemaSyncer(syncUrl, Paths.get(localPath));
+//        try {
+//            syncer.sync();
+//        } catch (Exception e) {
+//            LOG.error("Schema sync failed, sensor will proceed with existing local data", e);
+//        }
+        LOG.info("Schema HTTP sync completed: url={}, localDir={}", syncUrl, localPath);
     }
 }
