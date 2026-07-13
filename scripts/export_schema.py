@@ -112,13 +112,49 @@ def fetch_columns(conn, database, table_name):
 def fetch_indexes(conn, database, table_name):
     with conn.cursor() as cur:
         cur.execute(
-            "SELECT INDEX_NAME, COLUMN_NAME, NON_UNIQUE, INDEX_TYPE "
+            "SELECT INDEX_NAME, SEQ_IN_INDEX, COLUMN_NAME, NON_UNIQUE, INDEX_TYPE, CARDINALITY "
             "FROM information_schema.STATISTICS "
             "WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s "
             "ORDER BY INDEX_NAME, SEQ_IN_INDEX",
             (database, table_name),
         )
         return cur.fetchall()
+
+
+def build_column_stats(indexes, row_count):
+    """Build per-column stats from MySQL index cardinality estimates."""
+    stats = {}
+    if row_count <= 0:
+        return stats
+
+    for idx in indexes:
+        if idx.get("SEQ_IN_INDEX") != 1:
+            continue
+
+        column_name = idx.get("COLUMN_NAME")
+        cardinality = idx.get("CARDINALITY")
+        if not column_name or cardinality is None:
+            continue
+
+        try:
+            ndv = int(cardinality)
+        except (TypeError, ValueError):
+            continue
+
+        if ndv < 0:
+            continue
+
+        existing = stats.get(column_name)
+        if existing is not None and existing["ndv"] >= ndv:
+            continue
+
+        stats[column_name] = {
+            "ndv": ndv,
+            "selectivity": round(min(ndv / row_count, 1.0), 6),
+            "source": "information_schema.statistics.cardinality",
+        }
+
+    return stats
 
 
 def build_table_metadata(table_row, columns, indexes, database, env):
@@ -153,6 +189,7 @@ def build_table_metadata(table_row, columns, indexes, database, env):
         "lastSyncTime": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "columns": col_list,
         "indexes": list(idx_map.values()),
+        "columnStats": build_column_stats(indexes, row_count),
     }
 
 
